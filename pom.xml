@@ -1,0 +1,292 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <parent>
+    <groupId>com.arpnetworking.build</groupId>
+    <artifactId>arpnetworking-parent-pom</artifactId>
+    <version>2.0.10</version>
+    <relativePath />
+  </parent>
+
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.arpnetworking.metrics</groupId>
+  <artifactId>mad-experimental</artifactId>
+  <packaging>jar</packaging>
+  <name>MAD Experimental Modules</name>
+  <description>Experimental modules for MAD</description>
+  <version>1.0.0-SNAPSHOT</version>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+      <comments>A business-friendly OSS license</comments>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>barp</id>
+      <name>Brandon Arp</name>
+      <email>brandon@insopemetrics.io</email>
+      <organization>InscopeMetrics</organization>
+      <organizationUrl>http://www.inscopemetrics.io</organizationUrl>
+      <roles>
+        <role>developer</role>
+      </roles>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:git@github.com:ArpNetworking/mad-experimental.git</connection>
+    <developerConnection>scm:git:git@github.com:ArpNetworking/mad-experimental.git</developerConnection>
+    <url>https://github.com/ArpNetworking/mad-experimental</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <!--Dependency versions-->
+    <metrics.aggregator.version>1.19.2</metrics.aggregator.version>
+    <junit.version>4.13.2</junit.version>
+    <mockito.version>4.0.0</mockito.version>
+    <hamcrest.version>2.0.0.0</hamcrest.version>
+
+    <!-- Additional Plugins -->
+    <rpm.maven.plugin.version>2.1.5</rpm.maven.plugin.version>
+
+    <!-- JVM Debug -->
+    <debugJavaOptions />
+    <debugJavaPort>9900</debugJavaPort>
+  </properties>
+  <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
+    <plugins>
+      <!-- Enable Inherited Plugins -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <dockerHostAddress>${docker.host.address}</dockerHostAddress>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>buildnumber-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>versions-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.rimerosolutions.maven.plugins</groupId>
+        <artifactId>wrapper-maven-plugin</artifactId>
+        <inherited>false</inherited>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <configuration>
+              <failOnWarning>false</failOnWarning>
+              <ignoreNonCompile>true</ignoreNonCompile>
+              <ignoredDependencies>
+                <ignoredDependency>com.arpnetworking.build:build-resources:jar:*</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+<!--
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.arpnetworking.metrics</groupId>
+        <artifactId>metrics-aggregator-daemon</artifactId>
+        <version>${metrics.aggregator.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+-->
+
+  <dependencies>
+    <!-- Metrics -->
+    <dependency>
+      <groupId>com.arpnetworking.metrics</groupId>
+      <artifactId>metrics-aggregator-daemon</artifactId>
+      <version>${metrics.aggregator.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.arpnetworking.metrics</groupId>
+      <artifactId>metrics-aggregator-daemon</artifactId>
+      <version>${metrics.aggregator.version}</version>
+      <type>pom</type>
+    </dependency>
+<!--
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson.databind</artifactId>
+    </dependency>
+-->
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>${mockito.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>java-hamcrest</artifactId>
+      <version>${hamcrest.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <profiles>
+    <profile>
+      <id>performanceTest</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>default-test</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>test</goal>
+                </goals>
+                <configuration>
+                  <includes>
+                    <include>**/*PT.java</include>
+                  </includes>
+                  <systemPropertyVariables>
+                    <logback.configurationFile>${basedir}/src/test/resources/logback-perf.xml</logback.configurationFile>
+                  </systemPropertyVariables>
+                  <parallel combine.self="override" />
+                  <forkCount>1</forkCount>
+                  <reuseForks>false</reuseForks>
+                  <argLine>-agentlib:hprof=cpu=samples,depth=15,interval=5,force=y,file=${basedir}/target/perf.profile.hprof.txt</argLine>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>rpm</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>rpm-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>generate-rpm</id>
+                <goals>
+                  <goal>rpm</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <license>Apache 2 License</license>
+              <group>System Environment/Daemons</group>
+              <autoRequires>false</autoRequires>
+              <requires>
+                <require>java &gt;= ${jdk.version}</require>
+              </requires>
+              <mappings>
+                <mapping>
+                  <directory>/opt/mad/lib/ext</directory>
+                  <artifact>
+                    <classifiers>
+                      <classifier></classifier>
+                    </classifiers>
+                  </artifact>
+                </mapping>
+              </mappings>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>debug</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+        <property>
+          <name>debug</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <properties>
+        <debugJavaOptions>-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=${debugJavaPort},suspend=n</debugJavaOptions>
+      </properties>
+    </profile>
+  </profiles>
+</project>
