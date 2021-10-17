@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.arpnetworking.metrics.mad.sources;
+package com.arpnetworking.metrics.mad.experimental.sources;
 
 import com.arpnetworking.commons.observer.Observable;
 import com.arpnetworking.commons.observer.Observer;
@@ -22,7 +22,6 @@ import com.arpnetworking.metrics.mad.model.DefaultQuantity;
 import com.arpnetworking.metrics.mad.model.MetricType;
 import com.arpnetworking.metrics.mad.model.Record;
 import com.arpnetworking.metrics.mad.model.Unit;
-import com.arpnetworking.metrics.mad.sources.TransformingSource.MergingMetric;
 import com.arpnetworking.test.TestBeanFactory;
 import com.arpnetworking.test.UnorderedRecordEquality;
 import com.arpnetworking.tsdcore.model.Key;
@@ -107,7 +106,7 @@ public class TransformingSourceTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testMergingMetricMergeMismatchedTypes() {
-        final MergingMetric mergingMetric = new MergingMetric(
+        final TransformingSource.MergingMetric mergingMetric = new TransformingSource.MergingMetric(
                 TestBeanFactory.createMetricBuilder()
                         .setType(MetricType.COUNTER)
                         .build());

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.arpnetworking.utility;
+package com.arpnetworking.metrics.mad.experimental.utility;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

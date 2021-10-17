@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.arpnetworking.metrics.mad.sources;
+package com.arpnetworking.metrics.mad.experimental.sources;
 
 import com.arpnetworking.commons.builder.OvalBuilder;
 import com.arpnetworking.commons.builder.ThreadLocalBuilder;
@@ -22,6 +22,7 @@ import com.arpnetworking.commons.observer.Observer;
 import com.arpnetworking.logback.annotations.LogValue;
 import com.arpnetworking.metrics.common.sources.BaseSource;
 import com.arpnetworking.metrics.common.sources.Source;
+import com.arpnetworking.metrics.mad.experimental.utility.RegexAndMapReplacer;
 import com.arpnetworking.metrics.mad.model.DefaultMetric;
 import com.arpnetworking.metrics.mad.model.DefaultRecord;
 import com.arpnetworking.metrics.mad.model.Metric;
@@ -35,7 +36,6 @@ import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
 import com.arpnetworking.tsdcore.model.DefaultKey;
 import com.arpnetworking.tsdcore.model.Key;
-import com.arpnetworking.utility.RegexAndMapReplacer;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
