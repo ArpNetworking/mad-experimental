@@ -46,17 +46,24 @@
 
   <properties>
     <!--Dependency versions-->
-    <metrics.aggregator.version>1.19.2</metrics.aggregator.version>
+    <metrics.aggregator.version>1.20.0</metrics.aggregator.version>
+    <open.telemetry.protocol.version>1.0.3</open.telemetry.protocol.version>
     <junit.version>4.13.2</junit.version>
     <mockito.version>4.0.0</mockito.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
 
     <!-- Additional Plugins -->
+    <docker.maven.plugin.version>0.27.2</docker.maven.plugin.version>
+    <maven.assembly.plugin.version>2.6</maven.assembly.plugin.version>
     <rpm.maven.plugin.version>2.1.5</rpm.maven.plugin.version>
 
     <!-- JVM Debug -->
     <debugJavaOptions />
     <debugJavaPort>9900</debugJavaPort>
+
+    <!-- Project Overrides -->
+    <buildDirectory>${project.basedir}/target</buildDirectory>
+    <skipDockerBuild>false</skipDockerBuild>
   </properties>
   <build>
     <resources>
@@ -121,7 +128,52 @@
         <artifactId>wrapper-maven-plugin</artifactId>
         <inherited>false</inherited>
       </plugin>
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>${maven.clean.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>clean-assemblies</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>clean</goal>
+            </goals>
+            <configuration>
+              <excludeDefaultDirectories>true</excludeDefaultDirectories>
+              <verbose>true</verbose>
+              <filesets>
+                <fileset>
+                  <directory>${project.build.directory}/docker-assembly</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>${maven.assembly.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>docker-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <appendAssemblyId>false</appendAssemblyId>
+              <finalName>docker-assembly</finalName>
+              <attach>false</attach>
+              <tarLongFileMode>posix</tarLongFileMode>
+              <descriptors>
+                <descripto>src/main/assembly/docker.xml</descripto>
+              </descriptors>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
@@ -142,6 +194,111 @@
           </execution>
         </executions>
       </plugin>
+
+
+
+
+
+      <plugin>
+        <groupId>io.fabric8</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <version>${docker.maven.plugin.version}</version>
+        <extensions>true</extensions>
+        <executions>
+          <execution>
+            <id>default-build</id>
+            <phase>package</phase>
+            <goals>
+              <goal>build</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-start</id>
+            <phase>pre-integration-test</phase>
+            <goals>
+              <goal>start</goal>
+            </goals>
+            <configuration>
+              <skip>${skipIntegrationTests}</skip>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-stop</id>
+            <phase>post-integration-test</phase>
+            <goals>
+              <goal>stop</goal>
+            </goals>
+            <configuration>
+              <skip>${skipIntegrationTests}</skip>
+            </configuration>
+          </execution>
+          <execution>
+            <id>default-push</id>
+            <phase>deploy</phase>
+            <goals>
+              <goal>push</goal>
+            </goals>
+            <configuration>
+              <filter>arpnetworking/mad-experimental:${project.version}</filter>
+            </configuration>
+          </execution>
+        </executions>
+        <configuration>
+          <autoCreateCustomNetworks>true</autoCreateCustomNetworks>
+          <showLogs>true</showLogs>
+          <images>
+            <image>
+              <name>arpnetworking/mad-experimental:${project.version}</name>
+              <alias>mad-exp</alias>
+              <build>
+                <dockerFile>${project.build.directory}/docker-assembly/Dockerfile</dockerFile>
+                <tags>
+                  <tag>${buildNumber}</tag>
+                </tags>
+              </build>
+              <run>
+                <network>
+                  <mode>custom</mode>
+                  <name>mad-net</name>
+                  <alias>mad</alias>
+                </network>
+                <ports>
+                  <port>+mad.ip:${debugJavaPort}:${debugJavaPort}</port>
+                  <port>+mad.ip:7090:7090</port>
+                  <port>+mad.ip:7091:7091</port>
+                  <port>+mad.ip:8125:8125/udp</port>
+                </ports>
+                <env>
+                  <JAVA_OPTS>${debugJavaOptions}</JAVA_OPTS>
+                  <KAFKA_SOURCE_BOOTSTRAP_HOST>kafka</KAFKA_SOURCE_BOOTSTRAP_HOST>
+                  <!-- TODO(ville): Obtain these from the current user! -->
+                  <!-- Ref: https://github.com/rynr/user-id-maven-plugin -->
+                  <MAD_UID>1000</MAD_UID>
+                  <MAD_GID>1000</MAD_GID>
+                </env>
+                <volumes>
+                  <bind>
+                    <volume>${project.basedir}/logs/docker:/opt/mad/logs</volume>
+                  </bind>
+                </volumes>
+                <wait>
+                  <http>
+                    <url>http://${mad.ip}:7090/ping</url>
+                    <method>GET</method>
+                    <status>200</status>
+                  </http>
+                  <!-- NOTE: The service is _really_ slow to start-up under native docker -->
+                  <time>150000</time>
+                  <kill>1000</kill>
+                </wait>
+              </run>
+            </image>
+          </images>
+          <skip>${skipDockerBuild}</skip>
+        </configuration>
+      </plugin>
+
+
     </plugins>
   </build>
 
@@ -172,6 +329,11 @@
       <artifactId>metrics-aggregator-daemon</artifactId>
       <version>${metrics.aggregator.version}</version>
       <type>pom</type>
+    </dependency>
+    <dependency>
+      <groupId>com.arpnetworking.metrics</groupId>
+      <artifactId>open-telemetry-protocol</artifactId>
+      <version>${open.telemetry.protocol.version}</version>
     </dependency>
 <!--
     <dependency>

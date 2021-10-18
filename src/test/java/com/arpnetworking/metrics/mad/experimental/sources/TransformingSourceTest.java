@@ -116,6 +116,15 @@ public class TransformingSourceTest {
     }
 
     @Test
+    public void testMergingMetricStringRepresentation() {
+        final TransformingSource.MergingMetric mergingMetric = new TransformingSource.MergingMetric(
+                TestBeanFactory.createMetricBuilder()
+                        .setType(MetricType.COUNTER)
+                        .build());
+        final String str = mergingMetric.toString();
+    }
+
+    @Test
     public void testMergeNotMatch() {
         final Record nonMatchingRecord = TestBeanFactory.createRecordBuilder()
                 .setMetrics(ImmutableMap.of(
