@@ -55,6 +55,7 @@
     <!-- Additional Plugins -->
     <docker.maven.plugin.version>0.27.2</docker.maven.plugin.version>
     <maven.assembly.plugin.version>2.6</maven.assembly.plugin.version>
+    <maven.properties.plugin.version>1.0.0</maven.properties.plugin.version>
     <rpm.maven.plugin.version>2.1.5</rpm.maven.plugin.version>
 
     <!-- JVM Debug -->
