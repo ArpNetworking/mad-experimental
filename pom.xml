@@ -297,6 +297,24 @@
           <skip>${skipDockerBuild}</skip>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>properties-maven-plugin</artifactId>
+        <version>${maven.properties.plugin.version}</version>
+        <executions>
+          <execution>
+            <phase>pre-integration-test</phase>
+            <goals>
+              <goal>write-project-properties</goal>
+            </goals>
+            <configuration>
+              <outputFile>
+                ${project.build.directory}/pre-integration-test.properties
+              </outputFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
 
     </plugins>
@@ -448,6 +466,16 @@
       </activation>
       <properties>
         <debugJavaOptions>-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=${debugJavaPort},suspend=n</debugJavaOptions>
+      </properties>
+    </profile>
+    <profile>
+      <id>no-docker</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <skipIntegrationTests>true</skipIntegrationTests>
+        <skipDockerBuild>true</skipDockerBuild>
       </properties>
     </profile>
   </profiles>
