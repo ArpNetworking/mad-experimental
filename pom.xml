@@ -62,6 +62,9 @@
     <debugJavaOptions />
     <debugJavaPort>9900</debugJavaPort>
 
+    <!-- Assembly Overrides -->
+    <tgz.finalName>${project.build.finalName}</tgz.finalName>
+
     <!-- Project Overrides -->
     <buildDirectory>${project.basedir}/target</buildDirectory>
     <skipDockerBuild>false</skipDockerBuild>
@@ -184,6 +187,22 @@
               <tarLongFileMode>posix</tarLongFileMode>
               <descriptors>
                 <descripto>src/main/assembly/docker.xml</descripto>
+              </descriptors>
+            </configuration>
+          </execution>
+          <execution>
+            <id>app-tgz</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <finalName>${tgz.finalName}</finalName>
+              <appendAssemblyId>true</appendAssemblyId>
+              <attach>false</attach>
+              <tarLongFileMode>posix</tarLongFileMode>
+              <descriptors>
+                <descriptor>src/main/assembly/bin.xml</descriptor>
               </descriptors>
             </configuration>
           </execution>
