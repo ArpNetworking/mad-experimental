@@ -254,9 +254,11 @@ public final class TransformingSource extends BaseSource {
     // NOTE: Package private for testing
     /* package private */ static final class MergingMetric implements Metric {
 
+
         /* package private */ MergingMetric(final Metric metric) {
             _type = metric.getType();
             _values.addAll(metric.getValues());
+            _statistics = metric.getStatistics();
         }
 
         public boolean isMergable(final Metric metric) {
@@ -282,7 +284,7 @@ public final class TransformingSource extends BaseSource {
 
         @Override
         public ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> getStatistics() {
-            return ImmutableMap.of();
+            return _statistics;
         }
 
         @Override
@@ -296,6 +298,7 @@ public final class TransformingSource extends BaseSource {
 
         private final MetricType _type;
         private final ImmutableList.Builder<Quantity> _values = ImmutableList.builder();
+        private final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> _statistics;
     }
 
     /**

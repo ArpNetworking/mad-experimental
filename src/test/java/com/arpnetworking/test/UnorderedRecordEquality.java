@@ -18,7 +18,10 @@ package com.arpnetworking.test;
 import com.arpnetworking.metrics.mad.model.Metric;
 import com.arpnetworking.metrics.mad.model.Quantity;
 import com.arpnetworking.metrics.mad.model.Record;
+import com.arpnetworking.metrics.mad.model.statistics.Statistic;
+import com.arpnetworking.tsdcore.model.CalculatedValue;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 
 import java.util.Map;
@@ -60,6 +63,12 @@ public final class UnorderedRecordEquality {
             final Multiset<Quantity> v1 = HashMultiset.create(m1.getValues());
             final Multiset<Quantity> v2 = HashMultiset.create(m2.getValues());
             if (!v1.equals(v2)) {
+                return false;
+            }
+
+            final Multiset<Map.Entry<Statistic, ImmutableList<CalculatedValue<?>>>> s1 = HashMultiset.create(m1.getStatistics().entrySet());
+            final Multiset<Map.Entry<Statistic, ImmutableList<CalculatedValue<?>>>> s2 = HashMultiset.create(m2.getStatistics().entrySet());
+            if (!s1.equals(s2)) {
                 return false;
             }
         }

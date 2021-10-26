@@ -73,6 +73,7 @@
         <filtering>true</filtering>
       </resource>
     </resources>
+
     <plugins>
       <!-- Enable Inherited Plugins -->
       <plugin>
@@ -151,7 +152,20 @@
           </execution>
         </executions>
       </plugin>
-
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>appassembler-maven-plugin</artifactId>
+        <configuration>
+          <programs>
+            <program>
+              <id>mad</id>
+              <mainClass>com.arpnetworking.metrics.mad.Main</mainClass>
+            </program>
+          </programs>
+          <unixScriptTemplate>${project.build.directory}/appAssemblerUnixBinTemplate</unixScriptTemplate>
+          <endorsedDir>lib/ext</endorsedDir>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
@@ -195,11 +209,6 @@
           </execution>
         </executions>
       </plugin>
-
-
-
-
-
       <plugin>
         <groupId>io.fabric8</groupId>
         <artifactId>docker-maven-plugin</artifactId>
@@ -316,12 +325,9 @@
           </execution>
         </executions>
       </plugin>
-
-
     </plugins>
   </build>
 
-<!--
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -333,7 +339,6 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
--->
 
   <dependencies>
     <!-- Metrics -->
@@ -345,21 +350,15 @@
     </dependency>
     <dependency>
       <groupId>com.arpnetworking.metrics</groupId>
-      <artifactId>metrics-aggregator-daemon</artifactId>
-      <version>${metrics.aggregator.version}</version>
-      <type>pom</type>
-    </dependency>
-    <dependency>
-      <groupId>com.arpnetworking.metrics</groupId>
       <artifactId>open-telemetry-protocol</artifactId>
       <version>${open.telemetry.protocol.version}</version>
     </dependency>
-<!--
     <dependency>
-      <groupId>com.fasterxml.jackson.core</groupId>
-      <artifactId>jackson.databind</artifactId>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.32</version>
+      <scope>provided</scope>
     </dependency>
--->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -376,6 +375,36 @@
       <groupId>org.hamcrest</groupId>
       <artifactId>java-hamcrest</artifactId>
       <version>${hamcrest.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <version>1.7.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+      <version>1.7.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp-metrics</artifactId>
+      <version>1.7.0-alpha</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api-metrics</artifactId>
+      <version>1.7.0-alpha</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-metrics</artifactId>
+      <version>1.7.0-alpha</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

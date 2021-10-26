@@ -15,6 +15,7 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
+import com.arpnetworking.commons.builder.ThreadLocalBuilder;
 import com.arpnetworking.commons.observer.Observable;
 import com.arpnetworking.commons.observer.Observer;
 import com.arpnetworking.metrics.common.sources.Source;
@@ -22,8 +23,11 @@ import com.arpnetworking.metrics.mad.model.DefaultQuantity;
 import com.arpnetworking.metrics.mad.model.MetricType;
 import com.arpnetworking.metrics.mad.model.Record;
 import com.arpnetworking.metrics.mad.model.Unit;
+import com.arpnetworking.metrics.mad.model.statistics.Statistic;
+import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
 import com.arpnetworking.test.TestBeanFactory;
 import com.arpnetworking.test.UnorderedRecordEquality;
+import com.arpnetworking.tsdcore.model.CalculatedValue;
 import com.arpnetworking.tsdcore.model.Key;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -459,6 +463,74 @@ public class TransformingSourceTest {
         assertRecordsEqual(actualRecord, expectedRecord);
     }
 
+    @Test
+    public void testModificationPreservesStatistics() {
+        _transformSetBuilder.setInjectDimensions(ImmutableMap.of(
+                "injected",
+                new TransformingSource.DimensionInjection.Builder()
+                        .setValue("new_value")
+                        .setOverwrite(true)
+                        .build(),
+                "injected_no_over",
+                new TransformingSource.DimensionInjection.Builder()
+                        .setValue("new_value")
+                        .setOverwrite(false)
+                        .build()));
+
+        final Statistic minStat = new StatisticFactory().getStatistic("min");
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics =
+                ImmutableMap.of(minStat,
+                        ImmutableList.of(
+                                ThreadLocalBuilder.<CalculatedValue<Object>, CalculatedValue.Builder<Object>>buildGeneric(
+                                        CalculatedValue.Builder.class,
+                                        b -> b.setValue(
+                                                ThreadLocalBuilder.build(DefaultQuantity.Builder.class,
+                                                b2 -> b2.setValue(1.23d))))));
+        final Record matchingRecord = TestBeanFactory.createRecordBuilder()
+                .setMetrics(ImmutableMap.of(
+                        "doesnt_match",
+                        TestBeanFactory.createMetricBuilder()
+                                .setType(MetricType.GAUGE)
+                                .setValues(ImmutableList.of(
+                                        new DefaultQuantity.Builder()
+                                                .setValue(1.23d)
+                                                .setUnit(Unit.BYTE)
+                                                .build()))
+                                .setStatistics(statistics)
+                                .build()))
+                .setDimensions(
+                        ImmutableMap.of(
+                                Key.HOST_DIMENSION_KEY, "MyHost",
+                                Key.SERVICE_DIMENSION_KEY, "MyService",
+                                Key.CLUSTER_DIMENSION_KEY, "MyCluster",
+                                "injected", "old_value",
+                                "injected_no_over", "old_value"))
+                .build();
+
+        final Record actualRecord = mapRecord(matchingRecord);
+
+        final Map<String, String> expectedDimensions = Maps.newHashMap(matchingRecord.getDimensions());
+        expectedDimensions.put("injected", "new_value");
+        expectedDimensions.put("injected_no_over", "old_value");
+        final Record expectedRecord = TestBeanFactory.createRecordBuilder()
+                .setAnnotations(matchingRecord.getAnnotations())
+                .setTime(matchingRecord.getTime())
+                .setDimensions(ImmutableMap.copyOf(expectedDimensions))
+                .setMetrics(ImmutableMap.of(
+                        "doesnt_match",
+                        TestBeanFactory.createMetricBuilder()
+                                .setType(MetricType.GAUGE)
+                                .setValues(ImmutableList.of(
+                                        new DefaultQuantity.Builder()
+                                                .setValue(1.23d)
+                                                .setUnit(Unit.BYTE)
+                                                .build()))
+                                .setStatistics(statistics)
+                                .build()))
+                .build();
+        assertRecordsEqual(actualRecord, expectedRecord);
+    }
+    
     @Test
     public void testStaticDimensionInjectionOverwrite() {
         _transformSetBuilder.setInjectDimensions(ImmutableMap.of(

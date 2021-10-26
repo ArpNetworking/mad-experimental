@@ -30,6 +30,9 @@
       <fileMode>0644</fileMode>
       <includes>
         <include>Dockerfile</include>
+        <include>experimental.conf</include>
+        <include>pipeline.conf</include>
+        <include>logback.xml</include>
       </includes>
     </fileSet>
     <fileSet>
