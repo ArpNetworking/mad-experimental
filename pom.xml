@@ -13,7 +13,7 @@
   <packaging>jar</packaging>
   <name>MAD Experimental Modules</name>
   <description>Experimental modules for MAD</description>
-  <version>1.0.2</version>
+  <version>1.0.3-SNAPSHOT</version>
 
   <licenses>
     <license>
@@ -41,7 +41,7 @@
     <connection>scm:git:git@github.com:ArpNetworking/mad-experimental.git</connection>
     <developerConnection>scm:git:git@github.com:ArpNetworking/mad-experimental.git</developerConnection>
     <url>https://github.com/ArpNetworking/mad-experimental</url>
-    <tag>mad-experimental-1.0.2</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <properties>
