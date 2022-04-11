@@ -80,9 +80,16 @@ public class OpenTelemetryMetricsService implements MetricsService {
         final List<Record> records = Lists.newArrayList();
         for (ResourceMetrics resourceMetric : resourceMetrics) {
             final Resource resource = resourceMetric.getResource();
-            final ImmutableMap<String, String> resourceTags = resource.getAttributesList()
-                    .stream()
-                    .collect(ImmutableMap.toImmutableMap(KeyValue::getKey, kv -> kv.getValue().getStringValue()));
+            final ImmutableMap.Builder<String, String> tagsBuilder = ImmutableMap.builderWithExpectedSize(resource.getAttributesCount());
+            resource.getAttributesList().forEach(kv -> {
+                if ("service.name".equals(kv.getKey())) {
+                    tagsBuilder.put("service", kv.getValue().getStringValue());
+
+                }
+                tagsBuilder.put(kv.getKey(), kv.getValue().getStringValue());
+            });
+            final ImmutableMap<String, String> resourceTags = tagsBuilder.build();
+
             final List<InstrumentationLibraryMetrics> libMetrics = resourceMetric.getInstrumentationLibraryMetricsList();
             for (InstrumentationLibraryMetrics libMetric : libMetrics) {
                 final String schemaUrl = libMetric.getSchemaUrl();
