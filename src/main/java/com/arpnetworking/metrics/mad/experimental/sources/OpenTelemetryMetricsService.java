@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of the GRPC Metrics service.
@@ -310,9 +309,28 @@ public class OpenTelemetryMetricsService implements MetricsService {
         // CHECKSTYLE.ON: LineLength
         final ImmutableMap<String, String> finalTags;
         if (attributesCount > 0) {
-            final Map<String, String> tags = attributesList.stream().collect(
-                    Collectors.toMap(KeyValue::getKey, kv -> kv.getValue().getStringValue()));
-            resourceTags.forEach(tags::putIfAbsent);
+            final Map<String, String> tags = Maps.newHashMapWithExpectedSize(attributesCount + resourceTags.size());
+            for (KeyValue kv : attributesList) {
+                final String key = kv.getKey();
+                String value = kv.getValue().getStringValue();
+
+                if ("".equals(value)) {
+                    value = "[empty]";
+                }
+
+                if (tags.put(key, value) != null) {
+                    throw new IllegalStateException("Duplicate key");
+                }
+            }
+            for (Map.Entry<String, String> entry : resourceTags.entrySet()) {
+                final String key = entry.getKey();
+                String value = entry.getValue();
+
+                if ("".equals(value)) {
+                    value = "[empty]";
+                }
+                tags.putIfAbsent(key, value);
+            }
             finalTags = ImmutableMap.copyOf(tags);
         } else {
             finalTags = resourceTags;
