@@ -80,15 +80,7 @@ public class OpenTelemetryMetricsService implements MetricsService {
         final List<Record> records = Lists.newArrayList();
         for (ResourceMetrics resourceMetric : resourceMetrics) {
             final Resource resource = resourceMetric.getResource();
-            final ImmutableMap.Builder<String, String> tagsBuilder = ImmutableMap.builderWithExpectedSize(resource.getAttributesCount());
-            resource.getAttributesList().forEach(kv -> {
-                if ("service.name".equals(kv.getKey())) {
-                    tagsBuilder.put("service", kv.getValue().getStringValue());
-
-                }
-                tagsBuilder.put(kv.getKey(), kv.getValue().getStringValue());
-            });
-            final ImmutableMap<String, String> resourceTags = tagsBuilder.build();
+            final ImmutableMap<String, String> resourceTags = getTags(resource.getAttributesList());
 
             final List<InstrumentationLibraryMetrics> libMetrics = resourceMetric.getInstrumentationLibraryMetricsList();
             for (InstrumentationLibraryMetrics libMetric : libMetrics) {
@@ -142,6 +134,26 @@ public class OpenTelemetryMetricsService implements MetricsService {
                 .resolveOne(Duration.ofSeconds(1))
                 .thenApply(a -> Patterns.ask(a, new OpenTelemetryGrpcSource.RecordsMessage(records), Duration.ofSeconds(3)))
                 .thenApply(v -> ExportMetricsServiceResponse.newBuilder().build());
+    }
+
+    private static ImmutableMap<String, String> getTags(final List<KeyValue> attributesList) {
+        boolean hasService = false;
+        String serviceName = null;
+        final ImmutableMap.Builder<String, String> tagsBuilder = ImmutableMap.builderWithExpectedSize(attributesList.size());
+                for (KeyValue kv : attributesList) {
+            if ("service.name".equals(kv.getKey())) {
+                serviceName = kv.getValue().getStringValue();
+            }
+            if ("service".equals(kv.getKey())) {
+                hasService = true;
+            }
+            tagsBuilder.put(kv.getKey(), kv.getValue().getStringValue());
+        }
+
+        if (!hasService && serviceName != null) {
+            tagsBuilder.put("service", serviceName);
+        }
+        return tagsBuilder.build();
     }
 
     private static void convertNumberDataPoints(final List<NumberDataPoint> dataPoints, final String name,
@@ -298,12 +310,10 @@ public class OpenTelemetryMetricsService implements MetricsService {
         // CHECKSTYLE.ON: LineLength
         final ImmutableMap<String, String> finalTags;
         if (attributesCount > 0) {
-            finalTags = ImmutableMap.<String, String>builder()
-                    .putAll(resourceTags)
-                    .putAll(
-                            attributesList.stream().collect(
-                                    Collectors.toMap(KeyValue::getKey, kv -> kv.getValue().getStringValue())))
-                    .build();
+            final Map<String, String> tags = attributesList.stream().collect(
+                    Collectors.toMap(KeyValue::getKey, kv -> kv.getValue().getStringValue()));
+            resourceTags.forEach(tags::putIfAbsent);
+            finalTags = ImmutableMap.copyOf(tags);
         } else {
             finalTags = resourceTags;
         }
