@@ -88,7 +88,7 @@ public class OpenTelemetryMetricsService implements MetricsService {
                 for (final Metric metric : metrics) {
 
                     // Here is the place where we have all the metadata to build a record
-                    final String name = schemaUrl + "/" + metric.getName();
+                    final String name = metric.getName();
                     switch (metric.getDataCase()) {
                         case SUM:
                             final List<NumberDataPoint> sumPointsList = metric.getSum().getDataPointsList();
