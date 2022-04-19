@@ -103,7 +103,7 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
         }
 
         private void processRecordMessage(final RecordsMessage message) {
-            LOGGER.debug()
+            LOGGER.trace()
                     .setMessage("Got records")
                     .addData("records", message.getRecords())
                     .addData("count", message.getRecords().size()).log();

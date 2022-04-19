@@ -38,6 +38,7 @@ import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
 import io.opentelemetry.proto.common.v1.KeyValue;
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint;
 import io.opentelemetry.proto.metrics.v1.HistogramDataPoint;
 import io.opentelemetry.proto.metrics.v1.InstrumentationLibraryMetrics;
 import io.opentelemetry.proto.metrics.v1.Metric;
@@ -83,7 +84,6 @@ public class OpenTelemetryMetricsService implements MetricsService {
 
             final List<InstrumentationLibraryMetrics> libMetrics = resourceMetric.getInstrumentationLibraryMetricsList();
             for (InstrumentationLibraryMetrics libMetric : libMetrics) {
-                final String schemaUrl = libMetric.getSchemaUrl();
                 final List<Metric> metrics = libMetric.getMetricsList();
                 for (final Metric metric : metrics) {
 
@@ -104,6 +104,11 @@ public class OpenTelemetryMetricsService implements MetricsService {
                             final List<HistogramDataPoint> histogramDataPoints = metric.getHistogram()
                                     .getDataPointsList();
                             convertHistogramDataPoints(histogramDataPoints, name, resourceTags, metricsMap);
+                            break;
+                        case EXPONENTIAL_HISTOGRAM:
+                            final List<ExponentialHistogramDataPoint> expHistogramDataPoints = metric.getExponentialHistogram()
+                                    .getDataPointsList();
+                            convertExpHistogramDataPoints(expHistogramDataPoints, name, resourceTags, metricsMap);
                             break;
                         default:
                             RATE_LOGGER.warn()
@@ -194,10 +199,10 @@ public class OpenTelemetryMetricsService implements MetricsService {
     }
 
     private static void convertHistogramDataPoints(final List<HistogramDataPoint> dataPoints, final String name,
-                                                final ImmutableMap<String, String> resourceTags,
-                                                final Map<ImmutableMap<String, String>,
-                                                        Map<Long, Map<String,
-                                                                com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
+                                                   final ImmutableMap<String, String> resourceTags,
+                                                   final Map<ImmutableMap<String, String>,
+                                                           Map<Long, Map<String,
+                                                                   com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
         for (final HistogramDataPoint point : dataPoints) {
             if (point.getExplicitBoundsCount() == 0) {
                 RATE_LOGGER.debug()
@@ -213,25 +218,16 @@ public class OpenTelemetryMetricsService implements MetricsService {
 
             Double lowEstimate = null;
             Double highEstimate = null;
-            if (point.getBucketCounts(0) > 0) {
-                lowEstimate = point.getExplicitBounds(0) / 2;
-                entries.add(new AbstractMap.SimpleEntry<>(lowEstimate, point.getBucketCounts(0)));
-                highEstimate = point.getExplicitBounds(0) * 2;
-            }
 
-            for (int x = 0; x < point.getExplicitBoundsCount() - 1; x++) {
-                entries.add(new AbstractMap.SimpleEntry<>(point.getExplicitBounds(x), point.getBucketCounts(x + 1)));
-                if (point.getBucketCounts(x + 1) > 0) {
+            for (int x = 0; x < point.getExplicitBoundsCount(); x++) {
+                final long count = point.getBucketCounts(x + 1);
+                if (count > 0) {
+                    entries.add(new AbstractMap.SimpleEntry<>(point.getExplicitBounds(x), count));
                     if (lowEstimate == null) {
-                        point.getExplicitBounds(x);
+                        lowEstimate = point.getExplicitBounds(x);
                     }
                     highEstimate = point.getExplicitBounds(x + 1);
                 }
-            }
-
-            if (point.getBucketCounts(point.getBucketCountsCount() - 1) > 0) {
-                highEstimate = point.getExplicitBounds(point.getExplicitBoundsCount() - 1) * 2;
-                entries.add(new AbstractMap.SimpleEntry<>(highEstimate, point.getBucketCounts(point.getBucketCountsCount() - 1)));
             }
 
             final double low = lowEstimate == null ? 0 : lowEstimate;
@@ -264,6 +260,98 @@ public class OpenTelemetryMetricsService implements MetricsService {
                     point.getAttributesList());
         }
     }
+
+    // CHECKSTYLE.OFF: ExecutableStatementCount - We need to repeat for positive and negative
+    private static void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
+                                                      final ImmutableMap<String, String> resourceTags,
+                                                      final Map<ImmutableMap<String, String>,
+                                                        Map<Long, Map<String,
+                                                                com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
+        for (final ExponentialHistogramDataPoint histogram : dataPoints) {
+            final int scale = histogram.getScale() * -1;
+            if (!(histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
+                    || (histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0)) {
+                RATE_LOGGER.debug()
+                        .setMessage("Discarding data")
+                        .addData("reason", "no samples")
+                        .addData("type", "expHistogram")
+                        .log();
+                continue;
+            }
+
+            final Map<Statistic, ImmutableList<CalculatedValue<?>>> statistics = Maps.newHashMap();
+            final List<Map.Entry<Double, Long>> entries = Lists.newArrayList();
+            final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
+            double lowEstimate = Double.POSITIVE_INFINITY;
+            double highEstimate = Double.NEGATIVE_INFINITY;
+
+            int offset = positive.getOffset();
+            for (int x = 0; x < positive.getBucketCountsCount(); x++) {
+                final int index = offset + x;
+                //exponent := int64(index<<-e.scale) + ExponentBias
+                // return math.Float64frombits(uint64(exponent << MantissaWidth))
+                final long exponent = ((long) index << scale) + EXPONENT_BIAS;
+                final double value = Double.longBitsToDouble(exponent << MANTISSA_WIDTH);
+                final long count = positive.getBucketCounts(x);
+                entries.add(new AbstractMap.SimpleEntry<>(value, count));
+                if (value < lowEstimate) {
+                    lowEstimate = value;
+                }
+                if (value > highEstimate) {
+                    highEstimate = value;
+                }
+            }
+
+            final ExponentialHistogramDataPoint.Buckets negative = histogram.getNegative();
+            offset = negative.getOffset();
+            for (int x = 0; x < negative.getBucketCountsCount(); x++) {
+                final int index = offset + x;
+                //exponent := int64(index<<-e.scale) + ExponentBias
+                // return math.Float64frombits(uint64(exponent << MantissaWidth))
+                final long exponent = ((long) index << scale) + EXPONENT_BIAS;
+                final double value = Double.longBitsToDouble(exponent << MANTISSA_WIDTH | 1L << 63);
+                final long count = negative.getBucketCounts(x);
+                entries.add(new AbstractMap.SimpleEntry<>(value, count));
+                if (value < lowEstimate) {
+                    lowEstimate = value;
+                }
+                if (value > highEstimate) {
+                    highEstimate = value;
+                }
+            }
+
+
+            final double low = Double.isInfinite(lowEstimate) ? 0 : lowEstimate;
+            final double high = Double.isInfinite(highEstimate) ? 0 : highEstimate;
+
+            statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low));
+            statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high));
+            statistics.put(STATISTIC_FACTORY.getStatistic("count"), createCalculatedValue((double) histogram.getCount()));
+            statistics.put(STATISTIC_FACTORY.getStatistic("sum"), createCalculatedValue(histogram.getSum()));
+
+            statistics.put(
+                    STATISTIC_FACTORY.getStatistic("histogram"),
+                    createHistogramValue(entries));
+
+
+            final Long timestamp = histogram.getTimeUnixNano();
+            final com.arpnetworking.metrics.mad.model.Metric madMetric = ThreadLocalBuilder.build(DefaultMetric.Builder.class, builder -> {
+                builder.setStatistics(ImmutableMap.copyOf(statistics))
+                        .setType(MetricType.GAUGE);
+
+            });
+
+            finalizeMetric(
+                    name,
+                    resourceTags,
+                    metricsMap,
+                    timestamp,
+                    madMetric,
+                    histogram.getAttributesCount(),
+                    histogram.getAttributesList());
+        }
+    }
+    // CHECKSTYLE.ON: ExecutableStatementCount
 
     private static ImmutableList<CalculatedValue<?>> createHistogramValue(final List<Map.Entry<Double, Long>> entries) {
         return ImmutableList.of(
@@ -358,6 +446,9 @@ public class OpenTelemetryMetricsService implements MetricsService {
     }
 
     private final ActorSystem _actorSystem;
+    private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));
     private static final StatisticFactory STATISTIC_FACTORY = new StatisticFactory();
+    private static final long EXPONENT_BIAS = (1 << 10) - 1;
+    private static final long MANTISSA_WIDTH = 52;
 }
