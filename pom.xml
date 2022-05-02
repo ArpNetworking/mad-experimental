@@ -399,31 +399,37 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
-      <version>1.7.0</version>
+      <version>1.13.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk</artifactId>
-      <version>1.7.0</version>
+      <version>1.13.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-metrics-testing</artifactId>
+      <version>1.13.0-alpha</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-exporter-otlp-metrics</artifactId>
-      <version>1.7.0-alpha</version>
+      <version>1.13.0-alpha</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
-      <artifactId>opentelemetry-api-metrics</artifactId>
-      <version>1.7.0-alpha</version>
+      <artifactId>opentelemetry-sdk-common</artifactId>
+      <version>1.13.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-metrics</artifactId>
-      <version>1.7.0-alpha</version>
+      <version>1.13.0-alpha</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
