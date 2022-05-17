@@ -1,5 +1,9 @@
 pipeline {
-  agent { kubernetes { } }
+  agent {
+    kubernetes {
+      defaultContainer 'ubuntu'
+    }
+  }
   stages {
     stage('Init') {
       steps {
