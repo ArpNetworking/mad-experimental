@@ -37,6 +37,7 @@ import com.google.common.collect.Maps;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
+import io.opentelemetry.proto.common.v1.AnyValue;
 import io.opentelemetry.proto.common.v1.KeyValue;
 import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint;
 import io.opentelemetry.proto.metrics.v1.HistogramDataPoint;
@@ -51,10 +52,12 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.AbstractMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of the GRPC Metrics service.
@@ -386,6 +389,52 @@ public class OpenTelemetryMetricsService implements MetricsService {
                                 b2 -> b2.setValue(low)))));
     }
 
+    private static String anyvalToString(final AnyValue value) {
+        String stringValue = "[empty]";
+            switch (value.getValueCase()) {
+                case STRING_VALUE:
+                    stringValue = value.getStringValue();
+
+                    if ("".equals(stringValue)) {
+                        stringValue = "[empty]";
+                    }
+                    break;
+                case BOOL_VALUE:
+                    stringValue = Boolean.toString(value.getBoolValue());
+                    break;
+                case INT_VALUE:
+                    stringValue = Long.toString(value.getIntValue());
+                    break;
+                case DOUBLE_VALUE:
+                    stringValue = Double.toString(value.getDoubleValue());
+                    break;
+                case ARRAY_VALUE:
+                    stringValue = value.getArrayValue()
+                            .getValuesList()
+                            .stream()
+                            .map(OpenTelemetryMetricsService::anyvalToString)
+                            .collect(Collectors.joining(","));
+                    break;
+                case KVLIST_VALUE:
+                    stringValue = value.getKvlistValue()
+                            .getValuesList()
+                            .stream()
+                            .map(kv -> kv.getKey() + ": " + OpenTelemetryMetricsService.anyvalToString(kv.getValue()))
+                            .collect(Collectors.joining(","));
+                    break;
+                case BYTES_VALUE:
+                    stringValue = Arrays.toString(value.getBytesValue().toByteArray());
+                    break;
+                case VALUE_NOT_SET:
+                    stringValue = "[empty]";
+                    break;
+                default:
+                    stringValue = "[unknown_type]";
+                    break;
+            }
+            return stringValue;
+    }
+
     // CHECKSTYLE.OFF: LineLength - Crazy map types
     private static void finalizeMetric(final String name,
                                        final ImmutableMap<String, String> resourceTags,
@@ -400,13 +449,8 @@ public class OpenTelemetryMetricsService implements MetricsService {
             final Map<String, String> tags = Maps.newHashMapWithExpectedSize(attributesCount + resourceTags.size());
             for (KeyValue kv : attributesList) {
                 final String key = kv.getKey();
-                String value = kv.getValue().getStringValue();
 
-                if ("".equals(value)) {
-                    value = "[empty]";
-                }
-
-                if (tags.put(key, value) != null) {
+                if (tags.put(key, OpenTelemetryMetricsService.anyvalToString(kv.getValue())) != null) {
                     throw new IllegalStateException("Duplicate key");
                 }
             }
