@@ -68,6 +68,7 @@
     <!-- Project Overrides -->
     <buildDirectory>${project.basedir}/target</buildDirectory>
     <skipDockerBuild>false</skipDockerBuild>
+    <spotbugs.exclude>${project.basedir}/spotbugs.exclude.xml</spotbugs.exclude>
   </properties>
   <build>
     <resources>

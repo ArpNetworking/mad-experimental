@@ -56,6 +56,11 @@ public final class UnorderedRecordEquality {
             }
             final Metric m1 = entry.getValue();
             final Metric m2 = r2.getMetrics().get(entry.getKey());
+
+            if (m2 == null) {
+                return false;
+            }
+
             if (!m1.getType().equals(m2.getType())) {
                 return false;
             }
