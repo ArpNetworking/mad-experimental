@@ -146,6 +146,7 @@ public final class TransformingSource extends BaseSource {
                                 final String replacedString = rep.getReplacement();
                                 final List<String> consumedDimensions = rep.getVariablesMatched()
                                         .getOrDefault("dimension", ImmutableList.of());
+                                assert consumedDimensions != null;
 
                                 final int tagsStart = replacedString.indexOf(';');
                                 if (tagsStart == -1) {

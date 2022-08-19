@@ -58,7 +58,7 @@ public class OpenTelemetryGrpcIT {
 
         @SuppressWarnings("deprecation")
         final OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder()
-                .setAggregationTemporality(it -> AggregationTemporality.DELTA)
+                .setAggregationTemporalitySelector(it -> AggregationTemporality.DELTA)
                 .setChannel(channel)
                 .build();
         final InMemoryMetricReader metricReader = InMemoryMetricReader.createDelta();

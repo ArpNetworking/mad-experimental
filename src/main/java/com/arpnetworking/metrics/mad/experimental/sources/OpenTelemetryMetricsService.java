@@ -273,7 +273,7 @@ public class OpenTelemetryMetricsService implements MetricsService {
         for (final ExponentialHistogramDataPoint histogram : dataPoints) {
             final int scale = histogram.getScale() * -1;
             if (!(histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
-                    || (histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0)) {
+                    || histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0) {
                 RATE_LOGGER.debug()
                         .setMessage("Discarding data")
                         .addData("reason", "no samples")
