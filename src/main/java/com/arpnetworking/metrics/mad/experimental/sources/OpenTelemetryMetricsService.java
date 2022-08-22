@@ -229,7 +229,9 @@ public class OpenTelemetryMetricsService implements MetricsService {
                     if (lowEstimate == null) {
                         lowEstimate = point.getExplicitBounds(x);
                     }
-                    highEstimate = point.getExplicitBounds(x + 1);
+                    if (x < point.getExplicitBoundsCount() - 1) {
+                        highEstimate = point.getExplicitBounds(x + 1);
+                    }
                 }
             }
 
