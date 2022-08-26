@@ -181,6 +181,13 @@ public class OpenTelemetryMetricsService implements MetricsService {
                     value = 0;
                     break;
             }
+            if (!Double.isFinite(value)) {
+                RATE_LOGGER.warn()
+                        .setMessage("Invalid value")
+                        .addData("value", value)
+                        .log();
+                continue;
+            }
             final Long timestamp = point.getTimeUnixNano();
             final Quantity quantity = ThreadLocalBuilder.build(DefaultQuantity.Builder.class, quantityBuilder -> {
                 quantityBuilder.setValue(value);
