@@ -46,7 +46,7 @@
 
   <properties>
     <!--Dependency versions-->
-    <metrics.aggregator.version>1.21.5</metrics.aggregator.version>
+    <metrics.aggregator.version>1.21.6</metrics.aggregator.version>
     <open.telemetry.protocol.version>1.1.0</open.telemetry.protocol.version>
     <junit.version>4.13.2</junit.version>
     <mockito.version>4.7.0</mockito.version>
