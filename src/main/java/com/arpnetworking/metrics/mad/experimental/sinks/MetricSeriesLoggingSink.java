@@ -30,7 +30,6 @@ import com.google.common.collect.Maps;
 import net.sf.oval.constraint.NotNull;
 
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -39,14 +38,14 @@ import java.util.Map;
  *
  * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
  */
-/* package private */ final class MetricsSeriesLoggingSink extends BaseSink {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MetricsSeriesLoggingSink.class);
+/* package private */ final class MetricSeriesLoggingSink extends BaseSink {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MetricSeriesLoggingSink.class);
     private final Map<String, List<Map<String, String>>> _metrics = Maps.newTreeMap();
     private final ObjectMapper _mapper;
     private ZonedDateTime _currentTime = ZonedDateTime.now();
 
 
-    private MetricsSeriesLoggingSink(final Builder builder) {
+    private MetricSeriesLoggingSink(final Builder builder) {
         super(builder);
         _mapper = builder._objectMapper;
     }
@@ -66,11 +65,12 @@ import java.util.Map;
         final ImmutableMap<String, String> dimensions = periodicData.getDimensions().getParameters();
         for (Map.Entry<String, AggregatedData> entry : periodicData.getData().entries()) {
             _metrics.compute(entry.getKey(), (k, v) -> {
-                if (v == null) {
-                    v = Lists.newArrayList();
+                List<Map<String, String>> list = v;
+                if (list == null) {
+                    list = Lists.newArrayList();
                 }
-                v.add(dimensions);
-                return v;
+                list.add(dimensions);
+                return list;
             });
         }
     }
@@ -86,13 +86,13 @@ import java.util.Map;
 
 
     /**
-     * Builder for {@link MetricsSeriesLoggingSink}.
+     * Builder for {@link MetricSeriesLoggingSink}.
      *
      * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
      */
-    public static final class Builder extends BaseSink.Builder<Builder, MetricsSeriesLoggingSink> {
-        public Builder() {
-            super(MetricsSeriesLoggingSink::new);
+    public static final class Builder extends BaseSink.Builder<Builder, MetricSeriesLoggingSink> {
+        Builder() {
+            super(MetricSeriesLoggingSink::new);
         }
 
         /**
