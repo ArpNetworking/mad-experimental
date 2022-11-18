@@ -15,7 +15,10 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sinks;
 
+import com.arpnetworking.commons.jackson.databind.ObjectMapperFactory;
+import com.arpnetworking.logback.annotations.LogValue;
 import com.arpnetworking.metrics.mad.model.AggregatedData;
+import com.arpnetworking.steno.LogValueMapFactory;
 import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.PeriodicData;
@@ -24,11 +27,18 @@ import com.arpnetworking.tsdcore.sinks.Sink;
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import net.sf.oval.constraint.NotNull;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.OpenOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -40,27 +50,28 @@ import java.util.Map;
  */
 /* package private */ final class MetricSeriesLoggingSink extends BaseSink {
     private static final Logger LOGGER = LoggerFactory.getLogger(MetricSeriesLoggingSink.class);
-    private final Map<String, List<Map<String, String>>> _metrics = Maps.newTreeMap();
+    private final Map<String, List<Map<String, String>>> _metrics = Maps.newConcurrentMap();
     private final ObjectMapper _mapper;
     private ZonedDateTime _currentTime = ZonedDateTime.now();
 
 
     private MetricSeriesLoggingSink(final Builder builder) {
         super(builder);
-        _mapper = builder._objectMapper;
+        _mapper = ObjectMapperFactory.getInstance();
+    }
+
+    @LogValue
+    @Override
+    public Object toLogValue() {
+        return LogValueMapFactory.builder(this)
+                .put("super", super.toLogValue())
+                .put("mapper", _mapper)
+                .build();
     }
 
     @Override
     public void recordAggregateData(final PeriodicData periodicData) {
-        final ZonedDateTime time = periodicData.getStart();
-        if (time.isAfter(_currentTime)) {
-            try {
-                recordMetrics();
-            } catch (final JsonProcessingException e) {
-                LOGGER.error().setMessage("Unable to serialize time series").setThrowable(e).log();
-            }
-            _metrics.clear();
-        }
+        recordMetrics(periodicData);
 
         final ImmutableMap<String, String> dimensions = periodicData.getDimensions().getParameters();
         for (Map.Entry<String, AggregatedData> entry : periodicData.getData().entries()) {
@@ -75,8 +86,19 @@ import java.util.Map;
         }
     }
 
-    private void recordMetrics() throws JsonProcessingException {
-        LOGGER.info().setMessage("Recording time series").addData("series", _mapper.writeValueAsString(_metrics)).log();
+    private synchronized void recordMetrics(final PeriodicData periodicData) {
+        final ZonedDateTime time = periodicData.getStart();
+        if (time.isAfter(_currentTime)) {
+            _currentTime = time;
+            LOGGER.info().setMessage("Dumping metrics streams").log();
+            try (final OutputStream outputStream = Files.newOutputStream(Path.of("metrics_streams.json"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)) {
+                _mapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, _metrics);
+            } catch (final IOException e) {
+                LOGGER.error().setMessage("Unable to serialize time series").setThrowable(e).log();
+            }
+            _metrics.clear();
+            LOGGER.info().setMessage("Dumping metrics streams complete").log();
+        }
     }
 
     @Override
@@ -91,27 +113,13 @@ import java.util.Map;
      * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
      */
     public static final class Builder extends BaseSink.Builder<Builder, MetricSeriesLoggingSink> {
-        Builder() {
+        public Builder() {
             super(MetricSeriesLoggingSink::new);
-        }
-
-        /**
-         * Sets the {@link ObjectMapper}.
-         * @param value the value
-         * @return self
-         */
-        public Builder setObjectMapper(final ObjectMapper value) {
-            _objectMapper = value;
-            return self();
         }
 
         @Override
         protected Builder self() {
             return this;
         }
-
-        @JacksonInject
-        @NotNull
-        private ObjectMapper _objectMapper;
     }
 }
