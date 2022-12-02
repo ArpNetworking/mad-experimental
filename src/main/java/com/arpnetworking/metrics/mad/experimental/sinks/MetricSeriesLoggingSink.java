@@ -87,7 +87,10 @@ import java.util.Map;
         if (time.isAfter(_currentTime)) {
             _currentTime = time;
             LOGGER.info().setMessage("Dumping metrics streams").log();
-            try (final OutputStream outputStream = Files.newOutputStream(Path.of("metrics_streams.json"), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE)) {
+            try (OutputStream outputStream = Files.newOutputStream(
+                    Path.of("metrics_streams.json"),
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.CREATE)) {
                 _mapper.writerWithDefaultPrettyPrinter().writeValue(outputStream, _metrics);
             } catch (final IOException e) {
                 LOGGER.error().setMessage("Unable to serialize time series").setThrowable(e).log();
@@ -109,7 +112,7 @@ import java.util.Map;
      * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
      */
     public static final class Builder extends BaseSink.Builder<Builder, MetricSeriesLoggingSink> {
-        public Builder() {
+        Builder() {
             super(MetricSeriesLoggingSink::new);
         }
 
