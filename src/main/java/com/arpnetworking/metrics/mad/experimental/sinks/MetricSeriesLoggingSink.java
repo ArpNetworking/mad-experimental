@@ -24,22 +24,18 @@ import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.PeriodicData;
 import com.arpnetworking.tsdcore.sinks.BaseSink;
 import com.arpnetworking.tsdcore.sinks.Sink;
-import com.fasterxml.jackson.annotation.JacksonInject;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import net.sf.oval.constraint.NotNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -74,7 +70,7 @@ import java.util.Map;
         recordMetrics(periodicData);
 
         final ImmutableMap<String, String> dimensions = periodicData.getDimensions().getParameters();
-        for (Map.Entry<String, AggregatedData> entry : periodicData.getData().entries()) {
+        for (Map.Entry<String, Collection<AggregatedData>> entry : periodicData.getData().asMap().entrySet()) {
             _metrics.compute(entry.getKey(), (k, v) -> {
                 List<Map<String, String>> list = v;
                 if (list == null) {
