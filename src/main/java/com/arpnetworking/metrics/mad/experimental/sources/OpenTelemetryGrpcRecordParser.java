@@ -1,8 +1,29 @@
+/*
+ * Copyright 2023 Inscope Metrics, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
+import akka.http.scaladsl.model.ParsingException;
 import com.arpnetworking.commons.builder.ThreadLocalBuilder;
-import com.arpnetworking.metrics.mad.model.*;
+import com.arpnetworking.metrics.common.parsers.Parser;
+import com.arpnetworking.metrics.mad.model.DefaultMetric;
+import com.arpnetworking.metrics.mad.model.DefaultQuantity;
+import com.arpnetworking.metrics.mad.model.DefaultRecord;
 import com.arpnetworking.metrics.mad.model.Metric;
+import com.arpnetworking.metrics.mad.model.MetricType;
+import com.arpnetworking.metrics.mad.model.Quantity;
 import com.arpnetworking.metrics.mad.model.Record;
 import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
 import com.arpnetworking.metrics.mad.model.statistics.Statistic;
@@ -17,18 +38,32 @@ import com.google.common.collect.Maps;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.common.v1.AnyValue;
 import io.opentelemetry.proto.common.v1.KeyValue;
-import io.opentelemetry.proto.metrics.v1.*;
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint;
+import io.opentelemetry.proto.metrics.v1.HistogramDataPoint;
+import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
+import io.opentelemetry.proto.metrics.v1.ResourceMetrics;
+import io.opentelemetry.proto.metrics.v1.ScopeMetrics;
 import io.opentelemetry.proto.resource.v1.Resource;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class OpenTelemetryGrpcRecordParser {
-    public List<Record> parseRecords(final ExportMetricsServiceRequest request) {
+/**
+ * Parses the OTel protobuf binary protocol into records.
+ *
+ * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
+ */
+public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, ExportMetricsServiceRequest> {
+    @Override
+    public List<Record> parse(final ExportMetricsServiceRequest request) throws ParsingException {
         final Map<ImmutableMap<String, String>, Map<Long, Map<String, Metric>>> metricsMap =
                 Maps.newHashMap();
         final List<ResourceMetrics> resourceMetrics = request.getResourceMetricsList();
@@ -233,6 +268,7 @@ public class OpenTelemetryGrpcRecordParser {
     }
 
     // CHECKSTYLE.OFF: ExecutableStatementCount - We need to repeat for positive and negative
+    // CHECKSTYLE.OFF: MethodLength - We need to repeat for positive and negative
     private static void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
                                                       final ImmutableMap<String, String> resourceTags,
                                                       final Map<ImmutableMap<String, String>,
@@ -265,7 +301,7 @@ public class OpenTelemetryGrpcRecordParser {
                     continue;
                 }
                 final int index = offset + x;
-                double value = mapIndexToValue(index, scale, scaleFactor);
+                final double value = mapIndexToValue(index, scale, scaleFactor);
 
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
@@ -284,7 +320,7 @@ public class OpenTelemetryGrpcRecordParser {
                     continue;
                 }
                 final int index = offset + x;
-                double value = -mapIndexToValue(index, scale, scaleFactor);
+                final double value = -mapIndexToValue(index, scale, scaleFactor);
 
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
@@ -339,43 +375,28 @@ public class OpenTelemetryGrpcRecordParser {
         }
     }
 
-    static double mapIndexToValue(int index, int scale, double scaleFactor) {
+    static double mapIndexToValue(final int index, final int scale, final double scaleFactor) {
         final double value;
         if (scale > 0) {
             value = Math.exp((index + 1) / scaleFactor);
-        }
-        // For scale zero, compute the exact index by extracting the exponent
-        else if (scale == 0) {
+        } else if (scale == 0) {
+            // For scale zero, compute the exact index by extracting the exponent
             value = mapIndexToValueScaleZero(index);
-        }
-        // For negative scales, compute the exact index by extracting the exponent and shifting it to
-        // the right by -scale
-        else {
+        } else {
+            // For negative scales, compute the exact index by extracting the exponent and shifting it to
+            // the right by -scale
             value = mapIndexToValueScaleZero(index << -scale);
         }
         return value;
     }
 
-    private static double mapIndexToValueScaleZero(int index) {
-
-
-        long rawExponent = index + EXPONENT_BIAS + 1;
-        long rawDouble = rawExponent << MANTISSA_WIDTH;
+    private static double mapIndexToValueScaleZero(final int index) {
+        final long rawExponent = index + EXPONENT_BIAS + 1;
+        final long rawDouble = rawExponent << MANTISSA_WIDTH;
         return Double.longBitsToDouble(rawDouble);
 
-
-//        long rawBits = Double.doubleToLongBits(value);
-//        long rawExponent = (rawBits & EXPONENT_BIT_MASK) >> SIGNIFICAND_WIDTH;
-//        long rawSignificand = rawBits & SIGNIFICAND_BIT_MASK;
-//        if (rawExponent == 0) {
-//            rawExponent -= Long.numberOfLeadingZeros(rawSignificand - 1) - EXPONENT_WIDTH - 1;
-//        }
-//        int ieeeExponent = (int) (rawExponent - EXPONENT_BIAS);
-//        if (rawSignificand == 0) {
-//            return ieeeExponent - 1;
-//        }
-//        return ieeeExponent;
     }
+    // CHECKSTYLE.ON: MethodLength
     // CHECKSTYLE.ON: ExecutableStatementCount
 
     private static ImmutableList<CalculatedValue<?>> createHistogramValue(final List<Map.Entry<Double, Long>> entries) {

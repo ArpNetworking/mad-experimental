@@ -1,3 +1,18 @@
+/*
+ * Copyright 2023 Inscope Metrics, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
 import akka.util.ByteString;
@@ -16,15 +31,12 @@ import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.exporter.internal.otlp.metrics.MetricsRequestMarshaler;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.metrics.Aggregation;
 import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
-import io.opentelemetry.sdk.metrics.internal.view.Base2ExponentialHistogramAggregation;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,24 +45,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-public class OpenTelemetryGrpcSourceTest {
+/**
+ * Tests for the {@link OpenTelemetryGrpcRecordParser} class.
+ *
+ * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
+ */
+public class OpenTelemetryGrpcRecordParserTest {
     private InMemoryMetricReader _metricReader;
     private SdkMeterProvider _metricProvider;
-    private OpenTelemetrySdk _openTelemetrySdk;
     private static final double LOG_BASE2_E = 1D / Math.log(2);
 
-
     @Before
-    public void setup() {
-        GlobalOpenTelemetry.resetForTest();
+    public void setUp() {
         _metricReader = InMemoryMetricReader.createDelta();
         _metricProvider = SdkMeterProvider.builder().registerMetricReader(_metricReader).build();
-        _openTelemetrySdk = OpenTelemetrySdk.builder().setMeterProvider(_metricProvider).buildAndRegisterGlobal();
-    }
-
-    @After
-    public void tearDown() {
-        _openTelemetrySdk.close();
     }
 
     @Test
@@ -70,13 +78,9 @@ public class OpenTelemetryGrpcSourceTest {
         histo.record(2.0, attrs);
         histo.record(3.0, attrs);
         histo.record(58.0, attrs);
-        final MetricsRequestMarshaler marshaller = MetricsRequestMarshaler.create(_metricReader.collectAllMetrics());
-        final ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        marshaller.writeBinaryTo(stream);
 
         final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
-        ExportMetricsServiceRequest request = MetricsService.Serializers.ExportMetricsServiceRequestSerializer.deserialize(ByteString.fromArray(stream.toByteArray()));
-        final List<Record> records = parser.parseRecords(request);
+        final List<Record> records = parser.parse(createRequest(_metricReader));
         // Assert on records
         Assert.assertEquals(1, records.size());
         final Record record = records.get(0);
@@ -107,7 +111,7 @@ public class OpenTelemetryGrpcSourceTest {
                                         .build())
                         .registerMetricReader(_metricReader).build();
         GlobalOpenTelemetry.resetForTest();
-        OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
+//        OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
 
         final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
         final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
@@ -123,13 +127,9 @@ public class OpenTelemetryGrpcSourceTest {
         histo.record(2.0, attrs);
         histo.record(3.0, attrs);
         histo.record(58.0, attrs);
-        final MetricsRequestMarshaler marshaller = MetricsRequestMarshaler.create(_metricReader.collectAllMetrics());
-        final ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        marshaller.writeBinaryTo(stream);
 
         final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
-        ExportMetricsServiceRequest request = MetricsService.Serializers.ExportMetricsServiceRequestSerializer.deserialize(ByteString.fromArray(stream.toByteArray()));
-        final List<Record> records = parser.parseRecords(request);
+        final List<Record> records = parser.parse(createRequest(_metricReader));
         // Assert on records
         Assert.assertEquals(1, records.size());
         final Record record = records.get(0);
@@ -160,21 +160,16 @@ public class OpenTelemetryGrpcSourceTest {
                                         .build())
                         .registerMetricReader(_metricReader).build();
         GlobalOpenTelemetry.resetForTest();
-        OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
 
         final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
         final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
 
-        double val = 1.8e24;
+        final double val = 1.8e24;
         histo.record(val);
         histo.record(1);
-        final MetricsRequestMarshaler marshaller = MetricsRequestMarshaler.create(_metricReader.collectAllMetrics());
-        final ByteArrayOutputStream stream = new ByteArrayOutputStream();
-        marshaller.writeBinaryTo(stream);
 
         final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
-        ExportMetricsServiceRequest request = MetricsService.Serializers.ExportMetricsServiceRequestSerializer.deserialize(ByteString.fromArray(stream.toByteArray()));
-        final List<Record> records = parser.parseRecords(request);
+        final List<Record> records = parser.parse(createRequest(_metricReader));
         // Assert on records
         Assert.assertEquals(1, records.size());
         final Record record = records.get(0);
@@ -183,11 +178,12 @@ public class OpenTelemetryGrpcSourceTest {
         final Metric metric = metrics.get("my_histogram");
         Assert.assertNotNull(metric);
         final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
-        Assert.assertEquals(1, statistics.get(new StatisticFactory().getStatistic("min")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(val, statistics.get(new StatisticFactory().getStatistic("max")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(2, statistics.get(new StatisticFactory().getStatistic("count")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(val, statistics.get(new StatisticFactory().getStatistic("sum")).get(0).getValue().getValue(), 0.01);
+        Assert.assertEquals(1, getStatisticValue(statistics, "min"), 0.01);
+        Assert.assertEquals(val, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(2, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(val, getStatisticValue(statistics, "sum"), 0.01);
     }
+
     @Test
     public void testBucketAndValueCalculations() {
         final List<Integer> scales = List.of(3, 2, 0, -2, -3);
@@ -199,8 +195,33 @@ public class OpenTelemetryGrpcSourceTest {
                 final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
                 final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
                 final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
-                Assert.assertEquals("Value " + value + " not equal to returned value " + returnedValue + " for scale " + scale + " and index " + index, value, returnedValue, allowance);
+                Assert.assertEquals(
+                        "Value %s not equal to returned value %s for scale %d and index %d".formatted(
+                                value,
+                                returnedValue,
+                                scale,
+                                index),
+                        value,
+                        returnedValue,
+                        allowance);
             }
         }
+    }
+
+    private ExportMetricsServiceRequest createRequest(final InMemoryMetricReader reader) throws IOException {
+        final MetricsRequestMarshaler marshaller = MetricsRequestMarshaler.create(reader.collectAllMetrics());
+        final ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        marshaller.writeBinaryTo(stream);
+        return MetricsService.Serializers.ExportMetricsServiceRequestSerializer.deserialize(ByteString.fromArray(stream.toByteArray()));
+    }
+
+    private double getStatisticValue(
+            final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics,
+            final String statistic) {
+        final ImmutableList<CalculatedValue<?>> calculated = statistics.get(new StatisticFactory().getStatistic(statistic));
+        if (calculated == null) {
+            throw new IllegalArgumentException("statistic not found: " + statistic);
+        }
+        return calculated.get(0).getValue().getValue();
     }
 }

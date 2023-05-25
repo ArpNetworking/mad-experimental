@@ -45,7 +45,7 @@ public class OpenTelemetryMetricsService implements MetricsService {
 
     @Override
     public CompletionStage<ExportMetricsServiceResponse> export(final ExportMetricsServiceRequest in) {
-        final List<Record> records = _recordParser.parseRecords(in);
+        final List<Record> records = _recordParser.parse(in);
 
         return _actorSystem.actorSelection("/user/" + OpenTelemetryGrpcSource.ACTOR_NAME)
                 .resolveOne(Duration.ofSeconds(1))
