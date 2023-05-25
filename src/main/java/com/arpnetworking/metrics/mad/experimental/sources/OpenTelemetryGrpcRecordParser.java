@@ -37,9 +37,9 @@ public class OpenTelemetryGrpcRecordParser {
             final Resource resource = resourceMetric.getResource();
             final ImmutableMap<String, String> resourceTags = getTags(resource.getAttributesList());
 
-            final List<InstrumentationLibraryMetrics> libMetrics = resourceMetric.getInstrumentationLibraryMetricsList();
-            for (InstrumentationLibraryMetrics libMetric : libMetrics) {
-                final List<io.opentelemetry.proto.metrics.v1.Metric> metrics = libMetric.getMetricsList();
+            final List<ScopeMetrics> scopeMetrics = resourceMetric.getScopeMetricsList();
+            for (ScopeMetrics scopeMetric : scopeMetrics) {
+                final List<io.opentelemetry.proto.metrics.v1.Metric> metrics = scopeMetric.getMetricsList();
                 for (final io.opentelemetry.proto.metrics.v1.Metric metric : metrics) {
 
                     // Here is the place where we have all the metadata to build a record
@@ -189,8 +189,20 @@ public class OpenTelemetryGrpcRecordParser {
                 }
             }
 
-            final double low = lowEstimate == null ? 0 : lowEstimate;
-            final double high = highEstimate == null ? 0 : highEstimate;
+            final double low;
+            final double high;
+
+            if (point.hasMin()) {
+                low = point.getMin();
+            } else {
+                low = lowEstimate == null ? 0 : lowEstimate;
+            }
+
+            if (point.hasMax()) {
+                high = point.getMax();
+            } else {
+                high = highEstimate == null ? 0 : highEstimate;
+            }
 
             statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low));
             statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high));
@@ -227,7 +239,8 @@ public class OpenTelemetryGrpcRecordParser {
                                                               Map<Long, Map<String,
                                                                       com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
         for (final ExponentialHistogramDataPoint histogram : dataPoints) {
-            final int scale = histogram.getScale() * -1;
+            final int scale = histogram.getScale();
+            final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
             if (!(histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
                     || histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0) {
                 RATE_LOGGER.debug()
@@ -246,12 +259,16 @@ public class OpenTelemetryGrpcRecordParser {
 
             int offset = positive.getOffset();
             for (int x = 0; x < positive.getBucketCountsCount(); x++) {
-                final int index = offset + x;
-                //exponent := int64(index<<-e.scale) + ExponentBias
-                // return math.Float64frombits(uint64(exponent << MantissaWidth))
-                final long exponent = ((long) index << scale) + EXPONENT_BIAS;
-                final double value = Double.longBitsToDouble(exponent << MANTISSA_WIDTH);
                 final long count = positive.getBucketCounts(x);
+                if (count == 0) {
+                    continue;
+                }
+                final int index = offset + x;
+                double value = 0;
+
+                value = mapIndexToValue(index, scale, scaleFactor);
+
+
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
                     lowEstimate = value;
@@ -279,9 +296,19 @@ public class OpenTelemetryGrpcRecordParser {
                 }
             }
 
+            final double low;
+            if (histogram.hasMin()) {
+                low = histogram.getMin();
+            } else {
+                low = Double.isInfinite(lowEstimate) ? 0 : lowEstimate;
+            }
 
-            final double low = Double.isInfinite(lowEstimate) ? 0 : lowEstimate;
-            final double high = Double.isInfinite(highEstimate) ? 0 : highEstimate;
+            final double high;
+            if (histogram.hasMax()) {
+                high = histogram.getMax();
+            } else {
+                high = Double.isInfinite(highEstimate) ? 0 : highEstimate;
+            }
 
             statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low));
             statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high));
@@ -309,6 +336,44 @@ public class OpenTelemetryGrpcRecordParser {
                     histogram.getAttributesCount(),
                     histogram.getAttributesList());
         }
+    }
+
+    static double mapIndexToValue(int index, int scale, double scaleFactor) {
+        final double value;
+        if (scale > 0) {
+            value = Math.exp((index + 1) / scaleFactor);
+        }
+        // For scale zero, compute the exact index by extracting the exponent
+        else if (scale == 0) {
+            value = mapIndexToValueScaleZero(index);
+        }
+        // For negative scales, compute the exact index by extracting the exponent and shifting it to
+        // the right by -scale
+        else {
+            value = mapIndexToValueScaleZero(index << -scale);
+        }
+        return value;
+    }
+
+    private static double mapIndexToValueScaleZero(int index) {
+
+
+        long rawExponent = index + EXPONENT_BIAS + 1;
+        long rawDouble = rawExponent << MANTISSA_WIDTH;
+        return Double.longBitsToDouble(rawDouble);
+
+
+//        long rawBits = Double.doubleToLongBits(value);
+//        long rawExponent = (rawBits & EXPONENT_BIT_MASK) >> SIGNIFICAND_WIDTH;
+//        long rawSignificand = rawBits & SIGNIFICAND_BIT_MASK;
+//        if (rawExponent == 0) {
+//            rawExponent -= Long.numberOfLeadingZeros(rawSignificand - 1) - EXPONENT_WIDTH - 1;
+//        }
+//        int ieeeExponent = (int) (rawExponent - EXPONENT_BIAS);
+//        if (rawSignificand == 0) {
+//            return ieeeExponent - 1;
+//        }
+//        return ieeeExponent;
     }
     // CHECKSTYLE.ON: ExecutableStatementCount
 
@@ -450,4 +515,5 @@ public class OpenTelemetryGrpcRecordParser {
     private static final StatisticFactory STATISTIC_FACTORY = new StatisticFactory();
     private static final long EXPONENT_BIAS = (1 << 10) - 1;
     private static final long MANTISSA_WIDTH = 52;
+    private static final double LOG_BASE2_E = 1D / Math.log(2);
 }
