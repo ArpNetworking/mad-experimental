@@ -17,47 +17,14 @@ package com.arpnetworking.metrics.mad.experimental.sources;
 
 import akka.actor.ActorSystem;
 import akka.pattern.Patterns;
-import com.arpnetworking.commons.builder.ThreadLocalBuilder;
-import com.arpnetworking.metrics.mad.model.DefaultMetric;
-import com.arpnetworking.metrics.mad.model.DefaultQuantity;
-import com.arpnetworking.metrics.mad.model.DefaultRecord;
-import com.arpnetworking.metrics.mad.model.MetricType;
-import com.arpnetworking.metrics.mad.model.Quantity;
 import com.arpnetworking.metrics.mad.model.Record;
-import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
-import com.arpnetworking.metrics.mad.model.statistics.Statistic;
-import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
-import com.arpnetworking.steno.Logger;
-import com.arpnetworking.steno.LoggerFactory;
-import com.arpnetworking.tsdcore.model.CalculatedValue;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
-import io.opentelemetry.proto.common.v1.AnyValue;
-import io.opentelemetry.proto.common.v1.KeyValue;
-import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint;
-import io.opentelemetry.proto.metrics.v1.HistogramDataPoint;
-import io.opentelemetry.proto.metrics.v1.InstrumentationLibraryMetrics;
-import io.opentelemetry.proto.metrics.v1.Metric;
-import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
-import io.opentelemetry.proto.metrics.v1.ResourceMetrics;
-import io.opentelemetry.proto.resource.v1.Resource;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.AbstractMap;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 
 /**
  * Implementation of the GRPC Metrics service.

@@ -17,7 +17,7 @@ import io.opentelemetry.exporter.internal.otlp.metrics.MetricsRequestMarshaler;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+import io.opentelemetry.sdk.metrics.*;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import org.junit.Assert;
 import org.junit.Test;
@@ -28,9 +28,18 @@ import java.util.List;
 
 public class OpenTelemetryGrpcSourceTest {
     @Test
-    public void testHistograms() throws IOException, InterruptedException {
+    public void testHistograms() throws IOException {
         final InMemoryMetricReader metricReader = InMemoryMetricReader.createDelta();
-        final SdkMeterProvider mp = SdkMeterProvider.builder().registerMetricReader(metricReader).build();
+        final SdkMeterProvider mp =
+                SdkMeterProvider.builder().registerView(
+                        InstrumentSelector.builder()
+                                .setName("my_histogram")
+                                .build(),
+                        View.builder()
+                                .setAggregation(
+                                        Aggregation.base2ExponentialBucketHistogram())
+                                .build())
+                        .registerMetricReader(metricReader).build();
         OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
 
         final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
