@@ -253,10 +253,11 @@ public class OpenTelemetryGrpcRecordParser {
 
             final Map<Statistic, ImmutableList<CalculatedValue<?>>> statistics = Maps.newHashMap();
             final List<Map.Entry<Double, Long>> entries = Lists.newArrayList();
-            final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
+
             double lowEstimate = Double.POSITIVE_INFINITY;
             double highEstimate = Double.NEGATIVE_INFINITY;
 
+            final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
             int offset = positive.getOffset();
             for (int x = 0; x < positive.getBucketCountsCount(); x++) {
                 final long count = positive.getBucketCounts(x);
@@ -264,10 +265,7 @@ public class OpenTelemetryGrpcRecordParser {
                     continue;
                 }
                 final int index = offset + x;
-                double value = 0;
-
-                value = mapIndexToValue(index, scale, scaleFactor);
-
+                double value = mapIndexToValue(index, scale, scaleFactor);
 
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
@@ -281,12 +279,13 @@ public class OpenTelemetryGrpcRecordParser {
             final ExponentialHistogramDataPoint.Buckets negative = histogram.getNegative();
             offset = negative.getOffset();
             for (int x = 0; x < negative.getBucketCountsCount(); x++) {
-                final int index = offset + x;
-                //exponent := int64(index<<-e.scale) + ExponentBias
-                // return math.Float64frombits(uint64(exponent << MantissaWidth))
-                final long exponent = ((long) index << scale) + EXPONENT_BIAS;
-                final double value = Double.longBitsToDouble(exponent << MANTISSA_WIDTH | 1L << 63);
                 final long count = negative.getBucketCounts(x);
+                if (count == 0) {
+                    continue;
+                }
+                final int index = offset + x;
+                double value = -mapIndexToValue(index, scale, scaleFactor);
+
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
                     lowEstimate = value;
@@ -295,6 +294,8 @@ public class OpenTelemetryGrpcRecordParser {
                     highEstimate = value;
                 }
             }
+
+            entries.add(new AbstractMap.SimpleEntry<>(0d, histogram.getZeroCount()));
 
             final double low;
             if (histogram.hasMin()) {
