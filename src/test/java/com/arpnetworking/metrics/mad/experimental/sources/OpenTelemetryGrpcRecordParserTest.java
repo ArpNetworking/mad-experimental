@@ -112,7 +112,6 @@ public class OpenTelemetryGrpcRecordParserTest {
                                         .build())
                         .registerMetricReader(_metricReader).build();
         GlobalOpenTelemetry.resetForTest();
-//        OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
 
         final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
         final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
