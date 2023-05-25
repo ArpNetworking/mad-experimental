@@ -39,6 +39,7 @@ import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -182,6 +183,83 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertEquals(val, getStatisticValue(statistics, "max"), 0.01);
         Assert.assertEquals(2, getStatisticValue(statistics, "count"), 0.01);
         Assert.assertEquals(val, getStatisticValue(statistics, "sum"), 0.01);
+    }
+
+    @Test
+    @Ignore("Otel doesn't support negative values in histograms")
+    public void testExponentialHistogramsNegativeValues() throws IOException {
+        final SdkMeterProvider mp =
+                SdkMeterProvider.builder().registerView(
+                                InstrumentSelector.builder()
+                                        .setName("my_histogram")
+                                        .build(),
+                                View.builder()
+                                        .setAggregation(
+                                                Aggregation.base2ExponentialBucketHistogram())
+                                        .build())
+                        .registerMetricReader(_metricReader).build();
+        GlobalOpenTelemetry.resetForTest();
+
+        final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
+
+
+        histo.record(-50);
+        histo.record(-100);
+        histo.record(1);
+
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        final List<Record> records = parser.parse(createRequest(_metricReader));
+        // Assert on records
+        Assert.assertEquals(1, records.size());
+        final Record record = records.get(0);
+        final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+        Assert.assertEquals(1, metrics.size());
+        final Metric metric = metrics.get("my_histogram");
+        Assert.assertNotNull(metric);
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+        Assert.assertEquals(-100, getStatisticValue(statistics, "min"), 0.01);
+        Assert.assertEquals(1, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(3, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(-149, getStatisticValue(statistics, "sum"), 0.01);
+    }
+
+    @Test
+    public void testExponentialHistogramsZeroValues() throws IOException {
+        final SdkMeterProvider mp =
+                SdkMeterProvider.builder().registerView(
+                                InstrumentSelector.builder()
+                                        .setName("my_histogram")
+                                        .build(),
+                                View.builder()
+                                        .setAggregation(
+                                                Aggregation.base2ExponentialBucketHistogram())
+                                        .build())
+                        .registerMetricReader(_metricReader).build();
+        GlobalOpenTelemetry.resetForTest();
+
+        final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
+
+
+        histo.record(0);
+        histo.record(0);
+        histo.record(1);
+
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        final List<Record> records = parser.parse(createRequest(_metricReader));
+        // Assert on records
+        Assert.assertEquals(1, records.size());
+        final Record record = records.get(0);
+        final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+        Assert.assertEquals(1, metrics.size());
+        final Metric metric = metrics.get("my_histogram");
+        Assert.assertNotNull(metric);
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+        Assert.assertEquals(0, getStatisticValue(statistics, "min"), 0.01);
+        Assert.assertEquals(1, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(3, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(1, getStatisticValue(statistics, "sum"), 0.01);
     }
 
     @Test
