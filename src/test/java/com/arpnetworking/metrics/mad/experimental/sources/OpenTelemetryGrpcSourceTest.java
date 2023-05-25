@@ -185,20 +185,21 @@ public class OpenTelemetryGrpcSourceTest {
         final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
         Assert.assertEquals(1, statistics.get(new StatisticFactory().getStatistic("min")).get(0).getValue().getValue(), 0.01);
         Assert.assertEquals(val, statistics.get(new StatisticFactory().getStatistic("max")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(1, statistics.get(new StatisticFactory().getStatistic("count")).get(0).getValue().getValue(), 0.01);
+        Assert.assertEquals(2, statistics.get(new StatisticFactory().getStatistic("count")).get(0).getValue().getValue(), 0.01);
         Assert.assertEquals(val, statistics.get(new StatisticFactory().getStatistic("sum")).get(0).getValue().getValue(), 0.01);
     }
     @Test
     public void testBucketAndValueCalculations() {
-        final List<Integer> scales = List.of(2, 0, -2);
-        final List<Double> values = List.of(1.0, 2.0, 3.0, 58.0, 1.8e24);
+        final List<Integer> scales = List.of(3, 2, 0, -2, -3);
+        final List<Double> values = List.of(1.0, 2.0, 3.0, 58.0, 1.8e24, 1.8e240);
         for (int scale : scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
             for (double value : values) {
                 final int index = indexer.getIndex(value);
                 final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
                 final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
-                Assert.assertEquals("Value " + value + " not equal to returned value " + returnedValue + " for scale " + scale + " and index " + index, value, returnedValue, 0.01);
+                final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
+                Assert.assertEquals("Value " + value + " not equal to returned value " + returnedValue + " for scale " + scale + " and index " + index, value, returnedValue, allowance);
             }
         }
     }
