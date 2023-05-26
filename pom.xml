@@ -47,10 +47,12 @@
   <properties>
     <!--Dependency versions-->
     <metrics.aggregator.version>1.21.9</metrics.aggregator.version>
-    <open.telemetry.protocol.version>1.1.0</open.telemetry.protocol.version>
+    <open.telemetry.protocol.version>1.2.0</open.telemetry.protocol.version>
     <junit.version>4.13.2</junit.version>
     <mockito.version>4.7.0</mockito.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
+    <otel.metrics.version>1.26.0</otel.metrics.version>
+    <otel.metrics.testing.version>1.13.0-alpha</otel.metrics.testing.version>
 
     <!-- Additional Plugins -->
     <docker.maven.plugin.version>0.27.2</docker.maven.plugin.version>
@@ -400,37 +402,37 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
-      <version>1.17.0</version>
+      <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk</artifactId>
-      <version>1.17.0</version>
+      <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-metrics-testing</artifactId>
-      <version>1.13.0-alpha</version>
+      <version>${otel.metrics.testing.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
-      <artifactId>opentelemetry-exporter-otlp-metrics</artifactId>
-      <version>1.14.0</version>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+      <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-common</artifactId>
-      <version>1.17.0</version>
+      <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-metrics</artifactId>
-      <version>1.17.0</version>
+      <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

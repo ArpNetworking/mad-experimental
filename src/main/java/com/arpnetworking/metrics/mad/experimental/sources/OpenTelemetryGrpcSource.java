@@ -163,7 +163,7 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
         }
 
         @Override
-        public Optional<CompletionStage<HttpResponse>> apply(final HttpRequest param) throws Exception, Exception {
+        public Optional<CompletionStage<HttpResponse>> apply(final HttpRequest param) throws Exception {
             final Function<HttpRequest, CompletionStage<HttpResponse>> subrouter =
                     MetricsServiceHandlerFactory.create(new OpenTelemetryMetricsService(_actorSystem), _actorSystem);
             return Optional.of(subrouter.apply(param));
