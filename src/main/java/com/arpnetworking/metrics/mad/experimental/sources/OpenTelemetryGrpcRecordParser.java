@@ -378,7 +378,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     static double mapIndexToValue(final int index, final int scale, final double scaleFactor) {
         final double value;
         if (scale > 0) {
-            final double low = Math.exp((index) / scaleFactor);
+            final double low = Math.exp(index / scaleFactor);
             final double high = Math.exp((index + 1) / scaleFactor);
             value = (low + high) / 2;
         } else if (scale == 0) {

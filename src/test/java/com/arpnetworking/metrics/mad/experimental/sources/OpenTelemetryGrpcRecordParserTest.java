@@ -50,6 +50,7 @@ import org.junit.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Tests for the {@link OpenTelemetryGrpcRecordParser} class.
@@ -290,8 +291,7 @@ public class OpenTelemetryGrpcRecordParserTest {
         histo.record(1.8e24);
 
         final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
-        ExportMetricsServiceRequest request = createRequest(_metricReader);
-        final List<Record> records = parser.parse(request);
+        final List<Record> records = parser.parse(createRequest(_metricReader));
         // Assert on records
         Assert.assertEquals(1, records.size());
         final Record record = records.get(0);
@@ -301,21 +301,25 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertNotNull(metric);
         final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
 
-        ImmutableList<CalculatedValue<?>> histogram = statistics.get(new StatisticFactory().getStatistic("histogram"));
+        final ImmutableList<CalculatedValue<?>> histogram = getStatistic(statistics, "histogram");
         Assert.assertNotNull(histogram);
         Assert.assertEquals(1, histogram.size());
-        HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData)histogram.get(0).getData();
+        final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogram.get(0).getData();
         Assert.assertNotNull(data);
-        HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
-        ObjectSortedSet<Double2LongMap.Entry> histogramValues = histogramSnapshot.getValues();
+        final HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+        final ObjectSortedSet<Double2LongMap.Entry> histogramValues = histogramSnapshot.getValues();
         Assert.assertEquals(3, histogramValues.size());
 
-        ExponentialHistogram otelHistogram = request.getResourceMetrics(0).getScopeMetrics(0).getMetrics(0).getExponentialHistogram();
-        ExponentialHistogramDataPoint otelHistogramDataPoint = otelHistogram.getDataPoints(0);
+        final ExponentialHistogram otelHistogram = createRequest(_metricReader)
+                .getResourceMetrics(0)
+                .getScopeMetrics(0)
+                .getMetrics(0)
+                .getExponentialHistogram();
+        final ExponentialHistogramDataPoint otelHistogramDataPoint = otelHistogram.getDataPoints(0);
         final HistogramIndexer indexer = new HistogramIndexer(otelHistogramDataPoint.getScale());
-        for(Double2LongMap.Entry entry: histogramValues) {
-            double value = entry.getDoubleKey();
-            if(Math.abs(value) < 0.001) {
+        for (Double2LongMap.Entry entry : histogramValues) {
+            final double value = entry.getDoubleKey();
+            if (Math.abs(value) < 0.001) {
                 Assert.assertEquals(otelHistogramDataPoint.getZeroCount(), entry.getLongValue());
             } else if (value > 0) {
                 final int index = indexer.getIndex(value) - otelHistogramDataPoint.getPositive().getOffset();
@@ -332,7 +336,7 @@ public class OpenTelemetryGrpcRecordParserTest {
     @Test
     public void testBucketAndValueCalculations2() {
         final List<Double> values = List.of(8191.9999999999945, 8193.0, 8500.0, 10000.0, 1.8e24);
-        int scale = 1;
+        final int scale = 1;
         final HistogramIndexer indexer = new HistogramIndexer(scale);
         for (double value : values) {
             final int index = indexer.getIndex(value);
@@ -358,7 +362,7 @@ public class OpenTelemetryGrpcRecordParserTest {
         for (int scale: scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
             final Double base = Math.pow(2, Math.pow(2, -scale));
-            for (int index=0; index < 120; index++) {
+            for (int index = 0; index < 120; index++) {
                 final double scaleFactor = Math.scalb(LOG_BASE2_E, scale);
                 final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
                 final int newIndex = indexer.getIndex(returnedValue);
@@ -405,10 +409,18 @@ public class OpenTelemetryGrpcRecordParserTest {
     private double getStatisticValue(
             final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics,
             final String statistic) {
-        final ImmutableList<CalculatedValue<?>> calculated = statistics.get(new StatisticFactory().getStatistic(statistic));
+        final ImmutableList<CalculatedValue<?>> calculated = getStatistic(statistics, statistic);
         if (calculated == null) {
             throw new IllegalArgumentException("statistic not found: " + statistic);
         }
         return calculated.get(0).getValue().getValue();
+    }
+
+    @Nullable
+    private ImmutableList<CalculatedValue<?>> getStatistic(
+            final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics,
+            final String statistic) {
+        return statistics.get(new StatisticFactory().getStatistic(statistic));
+
     }
 }
