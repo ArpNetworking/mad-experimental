@@ -60,7 +60,6 @@ import javax.annotation.Nullable;
 public class OpenTelemetryGrpcRecordParserTest {
     private InMemoryMetricReader _metricReader;
     private SdkMeterProvider _metricProvider;
-    private static final double LOG_BASE2_E = 1D / Math.log(2);
 
     @Before
     public void setUp() {
@@ -338,7 +337,7 @@ public class OpenTelemetryGrpcRecordParserTest {
     public void testBucketAndValueCalculations2() {
         final List<Double> values = List.of(8191.9999999999945, 8193.0, 8500.0, 10000.0, 1.8e24);
         final int scale = 1;
-        final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
+        final IndexToValue indexToValue = new PositiveScaleIndexToValue(scale);
         final HistogramIndexer indexer = new HistogramIndexer(scale);
         for (double value : values) {
             final int index = indexer.getIndex(value);
@@ -363,7 +362,7 @@ public class OpenTelemetryGrpcRecordParserTest {
         for (int scale: scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
             final Double base = Math.pow(2, Math.pow(2, -scale));
-            final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
+            final IndexToValue indexToValue = new PositiveScaleIndexToValue(scale);
             for (int index = 0; index < 120; index++) {
                 final double returnedValue = indexToValue.map(index);
                 final int newIndex = indexer.getIndex(returnedValue);
@@ -382,7 +381,7 @@ public class OpenTelemetryGrpcRecordParserTest {
         final List<Double> values = List.of(1.0, 2.0, 3.0, 58.0, 1.8e24, 1.8e240);
         for (int scale : scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
-            final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
+            final IndexToValue indexToValue = new PositiveScaleIndexToValue(scale);
             for (double value : values) {
                 final int index = indexer.getIndex(value);
                 final double returnedValue = indexToValue.map(index);
