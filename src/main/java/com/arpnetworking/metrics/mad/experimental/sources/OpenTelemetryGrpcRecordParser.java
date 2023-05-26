@@ -299,7 +299,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             final IndexToValue indexToValue;
             try {
                 indexToValue = _indexToValueCache.get(scale);  // This should never throw
-            } catch (ExecutionException e) {
+            } catch (final ExecutionException e) {
                 throw new RuntimeException(e);
             }
             final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
@@ -530,8 +530,4 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));
     private static final StatisticFactory STATISTIC_FACTORY = new StatisticFactory();
-
-
-
-
 }
