@@ -31,6 +31,9 @@ import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
 import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -54,6 +57,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 /**
@@ -269,14 +273,14 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
     // CHECKSTYLE.OFF: ExecutableStatementCount - We need to repeat for positive and negative
     // CHECKSTYLE.OFF: MethodLength - We need to repeat for positive and negative
-    private static void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
+    private void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
                                                       final ImmutableMap<String, String> resourceTags,
                                                       final Map<ImmutableMap<String, String>,
                                                               Map<Long, Map<String,
                                                                       com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
         for (final ExponentialHistogramDataPoint histogram : dataPoints) {
             final int scale = histogram.getScale();
-            final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
+
             if (!(histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
                     || histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0) {
                 RATE_LOGGER.debug()
@@ -292,7 +296,12 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
             double lowEstimate = Double.POSITIVE_INFINITY;
             double highEstimate = Double.NEGATIVE_INFINITY;
-
+            final IndexToValue indexToValue;
+            try {
+                indexToValue = _indexToValueCache.get(scale);  // This should never throw
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
             final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
             int offset = positive.getOffset();
             for (int x = 0; x < positive.getBucketCountsCount(); x++) {
@@ -301,7 +310,8 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                     continue;
                 }
                 final int index = offset + x;
-                final double value = mapIndexToValue(index, scale, scaleFactor);
+
+                final double value = indexToValue.map(index);
 
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
@@ -320,7 +330,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                     continue;
                 }
                 final int index = offset + x;
-                final double value = -mapIndexToValue(index, scale, scaleFactor);
+                final double value =  -indexToValue.map(index);
 
                 entries.add(new AbstractMap.SimpleEntry<>(value, count));
                 if (value < lowEstimate) {
@@ -375,33 +385,8 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
         }
     }
 
-    static double mapIndexToValue(final int index, final int scale, final double scaleFactor) {
-        final double value;
-        if (scale > 0) {
-            final double low = Math.exp(index / scaleFactor);
-            final double high = Math.exp((index + 1) / scaleFactor);
-            value = (low + high) / 2;
-        } else if (scale == 0) {
-            // For scale zero, compute the exact index by extracting the exponent
-            final double low = mapIndexToValueScaleZero(index);
-            final double high = mapIndexToValueScaleZero(index + 1);
-            value = (low + high) / 2;
-        } else {
-            // For negative scales, compute the exact index by extracting the exponent and shifting it to
-            // the right by -scale
-            final double low = mapIndexToValueScaleZero(index << -scale);
-            final double high = mapIndexToValueScaleZero((index + 1) << -scale);
-            value = (low + high) / 2;
-        }
-        return value;
-    }
 
-    private static double mapIndexToValueScaleZero(final int index) {
-        final long rawExponent = index + EXPONENT_BIAS;
-        final long rawDouble = rawExponent << MANTISSA_WIDTH;
-        return Double.longBitsToDouble(rawDouble);
 
-    }
     // CHECKSTYLE.ON: MethodLength
     // CHECKSTYLE.ON: ExecutableStatementCount
 
@@ -538,10 +523,53 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
         });
     }
 
+    private final LoadingCache<Integer, IndexToValue> _indexToValueCache = CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .build(CacheLoader.from(IndexToValue::new));
+
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));
     private static final StatisticFactory STATISTIC_FACTORY = new StatisticFactory();
     private static final long EXPONENT_BIAS = (1 << 10) - 1;
     private static final long MANTISSA_WIDTH = 52;
     private static final double LOG_BASE2_E = 1D / Math.log(2);
+
+    public static final class IndexToValue {
+        private final int _scale;
+        private final double _scaleFactor;
+
+        public IndexToValue(final int scale) {
+            _scale = scale;
+            _scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
+        }
+
+        double map(final int index) {
+            final double value;
+            if (_scale > 0) {
+                final double low = Math.exp(index / _scaleFactor);
+                final double high = Math.exp((index + 1) / _scaleFactor);
+                value = (low + high) / 2;
+            } else if (_scale == 0) {
+                // For scale zero, compute the exact index by extracting the exponent
+                final double low = mapIndexToValueScaleZero(index);
+                final double high = mapIndexToValueScaleZero(index + 1);
+                value = (low + high) / 2;
+            } else {
+                // For negative scales, compute the exact index by extracting the exponent and shifting it to
+                // the right by -scale
+                final double low = mapIndexToValueScaleZero(index << -_scale);
+                final double high = mapIndexToValueScaleZero((index + 1) << -_scale);
+                value = (low + high) / 2;
+            }
+            return value;
+        }
+    }
+
+
+    private static double mapIndexToValueScaleZero(final int index) {
+        final long rawExponent = index + EXPONENT_BIAS;
+        final long rawDouble = rawExponent << MANTISSA_WIDTH;
+        return Double.longBitsToDouble(rawDouble);
+
+    }
 }

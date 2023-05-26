@@ -338,11 +338,11 @@ public class OpenTelemetryGrpcRecordParserTest {
     public void testBucketAndValueCalculations2() {
         final List<Double> values = List.of(8191.9999999999945, 8193.0, 8500.0, 10000.0, 1.8e24);
         final int scale = 1;
+        final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
         final HistogramIndexer indexer = new HistogramIndexer(scale);
         for (double value : values) {
             final int index = indexer.getIndex(value);
-            final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
-            final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
+            final double returnedValue = indexToValue.map(index);
             final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
             final int newIndex = indexer.getIndex(returnedValue);
             Assert.assertEquals(
@@ -363,9 +363,9 @@ public class OpenTelemetryGrpcRecordParserTest {
         for (int scale: scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
             final Double base = Math.pow(2, Math.pow(2, -scale));
+            final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
             for (int index = 0; index < 120; index++) {
-                final double scaleFactor = Math.scalb(LOG_BASE2_E, scale);
-                final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
+                final double returnedValue = indexToValue.map(index);
                 final int newIndex = indexer.getIndex(returnedValue);
                 Assert.assertEquals("Index %s not equal to otel returned index %s for scale %s, returned value %s".formatted(
                         index,
@@ -382,10 +382,10 @@ public class OpenTelemetryGrpcRecordParserTest {
         final List<Double> values = List.of(1.0, 2.0, 3.0, 58.0, 1.8e24, 1.8e240);
         for (int scale : scales) {
             final HistogramIndexer indexer = new HistogramIndexer(scale);
+            final OpenTelemetryGrpcRecordParser.IndexToValue indexToValue = new OpenTelemetryGrpcRecordParser.IndexToValue(scale);
             for (double value : values) {
                 final int index = indexer.getIndex(value);
-                final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
-                final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
+                final double returnedValue = indexToValue.map(index);
                 final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
                 Assert.assertEquals(
                         "Value %s not equal to returned value %s for scale %d and index %d".formatted(
