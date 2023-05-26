@@ -53,6 +53,7 @@
     <hamcrest.version>2.0.0.0</hamcrest.version>
     <otel.metrics.version>1.26.0</otel.metrics.version>
     <otel.metrics.testing.version>1.13.0-alpha</otel.metrics.testing.version>
+    <jmh.version>1.36</jmh.version>
 
     <!-- Additional Plugins -->
     <docker.maven.plugin.version>0.27.2</docker.maven.plugin.version>
@@ -435,6 +436,18 @@
       <version>${otel.metrics.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-core</artifactId>
+      <version>${jmh.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmh</groupId>
+      <artifactId>jmh-generator-annprocess</artifactId>
+      <version>${jmh.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <profiles>
@@ -465,7 +478,7 @@
                   <parallel combine.self="override" />
                   <forkCount>1</forkCount>
                   <reuseForks>false</reuseForks>
-                  <argLine>-agentlib:hprof=cpu=samples,depth=15,interval=5,force=y,file=${basedir}/target/perf.profile.hprof.txt</argLine>
+                  <argLine>-XX:StartFlightRecording:dumponexit=true,filename=${basedir}/target/perf.profile.jfr,disk=true,name=perf -Xlog:jfr+startup=off</argLine>
                 </configuration>
               </execution>
             </executions>
