@@ -525,7 +525,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
     private final LoadingCache<Integer, IndexToValue> _indexToValueCache = CacheBuilder.newBuilder()
             .maximumSize(100)
-            .build(CacheLoader.from(PositiveScaleIndexToValue::new));
+            .build(CacheLoader.from(IndexToValueFactory::create));
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));

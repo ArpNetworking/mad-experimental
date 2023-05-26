@@ -3,31 +3,21 @@ package com.arpnetworking.metrics.mad.experimental.sources;
 final class PositiveScaleIndexToValue implements IndexToValue {
     private final int _scale;
     private final double _scaleFactor;
+    private final double _multiplier;
 
     public PositiveScaleIndexToValue(final int scale) {
+        if(scale <= 0) {
+            throw new RuntimeException("scale must be positive");
+        }
         _scale = scale;
         _scaleFactor = Math.scalb(LOG_BASE2_E, scale);
+        _multiplier = 0.5 * (1 + Math.exp(1/_scaleFactor));
     }
 
     @Override
     public double map(final int index) {
         final double value;
-        if (_scale > 0) {
-            final double low = Math.exp(index / _scaleFactor);
-            final double high = Math.exp((index + 1) / _scaleFactor);
-            value = (low + high) / 2;
-        } else if (_scale == 0) {
-            // For scale zero, compute the exact index by extracting the exponent
-            final double low = mapIndexToValueScaleZero(index);
-            final double high = mapIndexToValueScaleZero(index + 1);
-            value = (low + high) / 2;
-        } else {
-            // For negative scales, compute the exact index by extracting the exponent and shifting it to
-            // the right by -scale
-            final double low = mapIndexToValueScaleZero(index << -_scale);
-            final double high = mapIndexToValueScaleZero((index + 1) << -_scale);
-            value = (low + high) / 2;
-        }
+        value = _multiplier * Math.exp(index / _scaleFactor);
         return value;
     }
 
