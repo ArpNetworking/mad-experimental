@@ -18,6 +18,7 @@ package com.arpnetworking.metrics.mad.experimental.sources;
 import akka.util.ByteString;
 import com.arpnetworking.metrics.mad.model.Metric;
 import com.arpnetworking.metrics.mad.model.Record;
+import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
 import com.arpnetworking.metrics.mad.model.statistics.Statistic;
 import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
@@ -31,12 +32,16 @@ import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.exporter.internal.otlp.metrics.MetricsRequestMarshaler;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogram;
+import io.opentelemetry.proto.metrics.v1.ExponentialHistogramDataPoint;
 import io.opentelemetry.sdk.metrics.Aggregation;
 import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
+import it.unimi.dsi.fastutil.doubles.Double2LongMap;
+import it.unimi.dsi.fastutil.objects.ObjectSortedSet;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -259,6 +264,111 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertEquals(1, getStatisticValue(statistics, "max"), 0.01);
         Assert.assertEquals(3, getStatisticValue(statistics, "count"), 0.01);
         Assert.assertEquals(1, getStatisticValue(statistics, "sum"), 0.01);
+    }
+
+    @Test
+    public void testExponentialHistogramsBuckets() throws IOException {
+        final SdkMeterProvider mp =
+                SdkMeterProvider.builder().registerView(
+                                InstrumentSelector.builder()
+                                        .setName("my_histogram")
+                                        .build(),
+                                View.builder()
+                                        .setAggregation(
+                                                Aggregation.base2ExponentialBucketHistogram())
+                                        .build())
+                        .registerMetricReader(_metricReader).build();
+        GlobalOpenTelemetry.resetForTest();
+
+        final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
+
+        histo.record(0);
+        histo.record(10000);
+        histo.record(10000);
+        histo.record(10000);
+        histo.record(1.8e24);
+
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        ExportMetricsServiceRequest request = createRequest(_metricReader);
+        final List<Record> records = parser.parse(request);
+        // Assert on records
+        Assert.assertEquals(1, records.size());
+        final Record record = records.get(0);
+        final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+        Assert.assertEquals(1, metrics.size());
+        final Metric metric = metrics.get("my_histogram");
+        Assert.assertNotNull(metric);
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+
+        ImmutableList<CalculatedValue<?>> histogram = statistics.get(new StatisticFactory().getStatistic("histogram"));
+        Assert.assertNotNull(histogram);
+        Assert.assertEquals(1, histogram.size());
+        HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData)histogram.get(0).getData();
+        Assert.assertNotNull(data);
+        HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+        ObjectSortedSet<Double2LongMap.Entry> histogramValues = histogramSnapshot.getValues();
+        Assert.assertEquals(3, histogramValues.size());
+
+        ExponentialHistogram otelHistogram = request.getResourceMetrics(0).getScopeMetrics(0).getMetrics(0).getExponentialHistogram();
+        ExponentialHistogramDataPoint otelHistogramDataPoint = otelHistogram.getDataPoints(0);
+        final HistogramIndexer indexer = new HistogramIndexer(otelHistogramDataPoint.getScale());
+        for(Double2LongMap.Entry entry: histogramValues) {
+            double value = entry.getDoubleKey();
+            if(Math.abs(value) < 0.001) {
+                Assert.assertEquals(otelHistogramDataPoint.getZeroCount(), entry.getLongValue());
+            } else if (value > 0) {
+                final int index = indexer.getIndex(value) - otelHistogramDataPoint.getPositive().getOffset();
+                final long count = otelHistogramDataPoint.getPositive().getBucketCounts(index);
+                Assert.assertEquals(count, entry.getLongValue());
+            } else {
+                final int index = indexer.getIndex(value) - otelHistogramDataPoint.getNegative().getOffset();
+                final long count = otelHistogramDataPoint.getNegative().getBucketCounts(index);
+                Assert.assertEquals(count, entry.getLongValue());
+            }
+        }
+    }
+
+    @Test
+    public void testBucketAndValueCalculations2() {
+        final List<Double> values = List.of(8191.9999999999945, 8193.0, 8500.0, 10000.0, 1.8e24);
+        int scale = 1;
+        final HistogramIndexer indexer = new HistogramIndexer(scale);
+        for (double value : values) {
+            final int index = indexer.getIndex(value);
+            final double scaleFactor =  Math.scalb(LOG_BASE2_E, scale);
+            final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
+            final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
+            final int newIndex = indexer.getIndex(returnedValue);
+            Assert.assertEquals(
+                    "Value %s not equal to returned value %s for scale %d and index %d".formatted(
+                            value,
+                            returnedValue,
+                            scale,
+                            index),
+                    value,
+                    returnedValue,
+                    allowance);
+        }
+    }
+
+    @Test
+    public void testBucketAndValueCalculations3() {
+        final List<Integer> scales = List.of(3, 2, 0, -2, -3);
+        for (int scale: scales) {
+            final HistogramIndexer indexer = new HistogramIndexer(scale);
+            final Double base = Math.pow(2, Math.pow(2, -scale));
+            for (int index=0; index < 120; index++) {
+                final double scaleFactor = Math.scalb(LOG_BASE2_E, scale);
+                final double returnedValue = OpenTelemetryGrpcRecordParser.mapIndexToValue(index, scale, scaleFactor);
+                final int newIndex = indexer.getIndex(returnedValue);
+                Assert.assertEquals("Index %s not equal to otel returned index %s for scale %s, returned value %s".formatted(
+                        index,
+                        newIndex,
+                        scale,
+                        returnedValue), newIndex, index);
+            }
+        }
     }
 
     @Test

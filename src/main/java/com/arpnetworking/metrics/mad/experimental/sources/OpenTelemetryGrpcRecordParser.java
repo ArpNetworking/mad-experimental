@@ -378,20 +378,26 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     static double mapIndexToValue(final int index, final int scale, final double scaleFactor) {
         final double value;
         if (scale > 0) {
-            value = Math.exp((index + 1) / scaleFactor);
+            final double low = Math.exp((index) / scaleFactor);
+            final double high = Math.exp((index + 1) / scaleFactor);
+            value = (low + high) / 2;
         } else if (scale == 0) {
             // For scale zero, compute the exact index by extracting the exponent
-            value = mapIndexToValueScaleZero(index);
+            final double low = mapIndexToValueScaleZero(index);
+            final double high = mapIndexToValueScaleZero(index + 1);
+            value = (low + high) / 2;
         } else {
             // For negative scales, compute the exact index by extracting the exponent and shifting it to
             // the right by -scale
-            value = mapIndexToValueScaleZero(index << -scale);
+            final double low = mapIndexToValueScaleZero(index << -scale);
+            final double high = mapIndexToValueScaleZero((index + 1) << -scale);
+            value = (low + high) / 2;
         }
         return value;
     }
 
     private static double mapIndexToValueScaleZero(final int index) {
-        final long rawExponent = index + EXPONENT_BIAS + 1;
+        final long rawExponent = index + EXPONENT_BIAS;
         final long rawDouble = rawExponent << MANTISSA_WIDTH;
         return Double.longBitsToDouble(rawDouble);
 
