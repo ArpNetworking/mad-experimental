@@ -291,7 +291,8 @@ public class OpenTelemetryGrpcRecordParserTest {
         histo.record(1.8e24);
 
         final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
-        final List<Record> records = parser.parse(createRequest(_metricReader));
+        final ExportMetricsServiceRequest request = createRequest(_metricReader);
+        final List<Record> records = parser.parse(request);
         // Assert on records
         Assert.assertEquals(1, records.size());
         final Record record = records.get(0);
@@ -310,7 +311,7 @@ public class OpenTelemetryGrpcRecordParserTest {
         final ObjectSortedSet<Double2LongMap.Entry> histogramValues = histogramSnapshot.getValues();
         Assert.assertEquals(3, histogramValues.size());
 
-        final ExponentialHistogram otelHistogram = createRequest(_metricReader)
+        final ExponentialHistogram otelHistogram = request
                 .getResourceMetrics(0)
                 .getScopeMetrics(0)
                 .getMetrics(0)
