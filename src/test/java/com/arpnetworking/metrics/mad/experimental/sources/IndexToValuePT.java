@@ -15,9 +15,8 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
-import org.junit.Assert;
 import org.junit.Test;
+import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -27,12 +26,15 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.Options;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Performance tests for the {@link OpenTelemetryGrpcRecordParser} class.
+ * Performance tests for a variety of IndexToValue classes.
  *
  * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
  */
@@ -40,34 +42,42 @@ import java.util.concurrent.TimeUnit;
 @Threads(1)
 @Fork(1)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-@Warmup(iterations = 5, time = 1)
-@Measurement(iterations = 5, time = 1)
-@BenchmarkMode(Mode.All)
+@Warmup(iterations = 1, time = 1)
+@Measurement(iterations = 1, time = 5)
+@BenchmarkMode(Mode.Throughput)
 public class IndexToValuePT {
 
+    private final int _index = 15;
+    private final Base2IndexToValue _base2IndexToValue = new Base2IndexToValue(1);
+    private final PositiveScaleIndexToValue _positiveScaleIndexToValue = new PositiveScaleIndexToValue(1);
+    private final NegativeScaleIndexToValue _negativeScaleIndexToValue = new NegativeScaleIndexToValue(-1);
+    private final ZeroScaleIndexToValue _zeroScaleIndexToValue = new ZeroScaleIndexToValue();
 
     @Test
-    public void testBucketAndValueCalculations() {
-        final List<Integer> scales = List.of(3, 2, 0, -2, -3);
-        final List<Double> values = List.of(1.0, 2.0, 3.0, 58.0, 1.8e24, 1.8e240);
-        for (int scale : scales) {
-            final HistogramIndexer indexer = new HistogramIndexer(scale);
-            final IndexToValue indexToValue = IndexToValueFactory.create(scale);
-            for (double value : values) {
-                final int index = indexer.getIndex(value);
-                final double returnedValue = indexToValue.map(index);
-                final double allowance = (Math.pow(2, Math.pow(2, -scale)) - 1) * value;
-                Assert.assertEquals(
-                        "Value %s not equal to returned value %s for scale %d and index %d".formatted(
-                                value,
-                                returnedValue,
-                                scale,
-                                index),
-                        value,
-                        returnedValue,
-                        allowance);
-            }
-        }
+    public void runBenchmarks() throws RunnerException {
+        final Options options = new OptionsBuilder()
+                .include(IndexToValuePT.class.getName())
+                .build();
+        new Runner(options).run();
     }
 
+    @Benchmark
+    public double testBase2Indexer() {
+       return _base2IndexToValue.map(_index);
+    }
+
+    @Benchmark
+    public double testPositiveScaleIndexer() {
+       return _positiveScaleIndexToValue.map(_index);
+    }
+
+    @Benchmark
+    public double testNegativeScaleIndexer() {
+       return _negativeScaleIndexToValue.map(_index);
+    }
+
+    @Benchmark
+    public double testZeroScaleIndexer() {
+        return _zeroScaleIndexToValue.map(_index);
+    }
 }
