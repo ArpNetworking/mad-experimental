@@ -53,6 +53,10 @@ public class IndexToValuePT {
     private final NegativeScaleIndexToValue _negativeScaleIndexToValue = new NegativeScaleIndexToValue(-1);
     private final ZeroScaleIndexToValue _zeroScaleIndexToValue = new ZeroScaleIndexToValue();
 
+
+    /**
+     * Run the benchmarks.
+     */
     @Test
     public void runBenchmarks() throws RunnerException {
         final Options options = new OptionsBuilder()
@@ -61,21 +65,42 @@ public class IndexToValuePT {
         new Runner(options).run();
     }
 
+
+    /**
+     * base 2 indexer benchmark.
+     *
+     * @return the value
+     */
     @Benchmark
     public double testBase2Indexer() {
        return _base2IndexToValue.map(_index);
     }
 
+    /**
+     * Positive scale indexer benchmark.
+     *
+     * @return the value
+     */
     @Benchmark
     public double testPositiveScaleIndexer() {
        return _positiveScaleIndexToValue.map(_index);
     }
 
+    /**
+     * Negative scale indexer benchmark.
+     *
+     * @return the value
+     */
     @Benchmark
     public double testNegativeScaleIndexer() {
        return _negativeScaleIndexToValue.map(_index);
     }
 
+    /**
+     * Zero scale indexer benchmark.
+     *
+     * @return the value
+     */
     @Benchmark
     public double testZeroScaleIndexer() {
         return _zeroScaleIndexToValue.map(_index);
