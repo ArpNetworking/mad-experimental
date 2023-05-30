@@ -41,8 +41,19 @@
             <Bug pattern="SR_NOT_CHECKED" />
          </Or>
          <Or>
-            <Class name="~.*\.[^\.]+Test" />
-            <Class name="~.*\.[^\.]+Test\$.*" />
+             <Class name="~.*\.[^\.]+Test" />
+             <Class name="~.*\.[^\.]+Test\$.*" />
+             <Class name="~.*\.[^\.]+TestPerf" />
+             <Class name="~.*\.[^\.]+TestPerf\$.*" />
+             <Class name="~.*\.[^\.]+IT" />
+             <Class name="~.*\.[^\.]+IT\$.*" />
+             <Class name="~.*\.[^\.]+ITPerf" />
+             <Class name="~.*\.[^\.]+ITPerf\$.*" />
+         </Or>
+     </Match>
+     <Match>
+         <Or>
+             <Source name="~.*generated.*" />
          </Or>
      </Match>
 </FindBugsFilter>
