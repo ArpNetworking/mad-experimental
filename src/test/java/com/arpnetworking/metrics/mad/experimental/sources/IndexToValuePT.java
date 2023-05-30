@@ -15,6 +15,7 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -58,6 +59,7 @@ public class IndexToValuePT {
      * Run the benchmarks.
      */
     @Test
+    @Ignore("Used only to benchmark the scales. Base2 is far slower per results. Run manually to re-benchmark.")
     public void runBenchmarks() throws RunnerException {
         final Options options = new OptionsBuilder()
                 .include(IndexToValuePT.class.getName())

@@ -57,7 +57,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -66,6 +66,30 @@ import java.util.stream.Collectors;
  * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
  */
 public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, ExportMetricsServiceRequest> {
+    /**
+     * Public constructor.
+     */
+    public OpenTelemetryGrpcRecordParser() {
+        this(true);
+    }
+
+    /**
+     * Public constructor.
+     *
+     * @param useCache whether to use a cache for the parser
+     */
+    public OpenTelemetryGrpcRecordParser(final boolean useCache) {
+        if (useCache) {
+            final Function<Integer, IndexToValue> indexToValueFromFactory = IndexToValueFactory::create;
+            _indexToValueFactory = indexToValueFromFactory;
+        } else {
+            final LoadingCache<Integer, IndexToValue> indexToValueCache = CacheBuilder.newBuilder()
+                    .maximumSize(100)
+                    .build(CacheLoader.from(IndexToValueFactory::create));
+            _indexToValueFactory = indexToValueCache::getUnchecked;
+        }
+    }
+
     @Override
     public List<Record> parse(final ExportMetricsServiceRequest request) throws ParsingException {
         final Map<ImmutableMap<String, String>, Map<Long, Map<String, Metric>>> metricsMap =
@@ -297,11 +321,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             double lowEstimate = Double.POSITIVE_INFINITY;
             double highEstimate = Double.NEGATIVE_INFINITY;
             final IndexToValue indexToValue;
-            try {
-                indexToValue = _indexToValueCache.get(scale);  // This should never throw
-            } catch (final ExecutionException e) {
-                throw new RuntimeException(e);
-            }
+            indexToValue = _indexToValueFactory.apply(scale);  // This should never throw
             final ExponentialHistogramDataPoint.Buckets positive = histogram.getPositive();
             int offset = positive.getOffset();
             for (int x = 0; x < positive.getBucketCountsCount(); x++) {
@@ -523,9 +543,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
         });
     }
 
-    private final LoadingCache<Integer, IndexToValue> _indexToValueCache = CacheBuilder.newBuilder()
-            .maximumSize(100)
-            .build(CacheLoader.from(IndexToValueFactory::create));
+    private final Function<Integer, IndexToValue> _indexToValueFactory;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));
