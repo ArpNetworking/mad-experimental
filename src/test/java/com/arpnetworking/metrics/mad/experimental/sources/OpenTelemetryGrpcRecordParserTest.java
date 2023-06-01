@@ -16,7 +16,11 @@
 package com.arpnetworking.metrics.mad.experimental.sources;
 
 import akka.util.ByteString;
+import com.arpnetworking.metrics.mad.model.DefaultMetric;
+import com.arpnetworking.metrics.mad.model.DefaultQuantity;
+import com.arpnetworking.metrics.mad.model.DefaultRecord;
 import com.arpnetworking.metrics.mad.model.Metric;
+import com.arpnetworking.metrics.mad.model.MetricType;
 import com.arpnetworking.metrics.mad.model.Record;
 import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
 import com.arpnetworking.metrics.mad.model.statistics.Statistic;
@@ -24,6 +28,7 @@ import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -49,8 +54,12 @@ import org.junit.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
+
 
 /**
  * Tests for the {@link OpenTelemetryGrpcRecordParser} class.
@@ -416,6 +425,288 @@ public class OpenTelemetryGrpcRecordParserTest {
         }
     }
 
+    // CHECKSTYLE.OFF: MethodLength - Huge expected object
+    @Test
+    public void testRegression1() throws IOException {
+        final byte[] tmp = Resources.toByteArray(Resources.getResource(OpenTelemetryGrpcRecordParserTest.class, "grpcrequest1.bin"));
+        final byte[] framedRequestBytes = Arrays.copyOfRange(tmp, 5, tmp.length);
+
+        final ExportMetricsServiceRequest request = MetricsService.Serializers.ExportMetricsServiceRequestSerializer
+                .deserialize(ByteString.fromArray(framedRequestBytes));
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        final StatisticFactory sf = new StatisticFactory();
+        final List<Record> expectedRecords = List.of(
+                new DefaultRecord.Builder()
+                        .setMetrics(ImmutableMap.of(
+                                "http.server.active_requests",
+                                new DefaultMetric.Builder().setType(MetricType.GAUGE).setValues(
+                                        ImmutableList.of(new DefaultQuantity.Builder().setValue(0d).build())).build()))
+                        .setId("abc")
+                        .setDimensions(ImmutableMap.of(
+                                "http.server_name", "central-services.api.staging.topsort.ai",
+                                "service.name", "central-services",
+                                "http.flavor", "1.1",
+                                "service", "central-services",
+                                "http.method", "POST",
+                                "http.scheme", "http",
+                                "http.host", "10.1.23.61:5000"))
+                        .setTime(ZonedDateTime.parse("2023-05-31T20:15:55.071Z"))
+                        .build(),
+                new DefaultRecord.Builder()
+                        .setMetrics(ImmutableMap.of(
+                                "runtime.python.asyncio.task_lag",
+                                new DefaultMetric.Builder()
+                                        .setType(MetricType.GAUGE)
+                                        .setValues(ImmutableList.of())
+                                        .setStatistics(
+                                                ImmutableMap.of(
+                                                        sf.getStatistic("max"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("min"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("sum"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("count"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(1d)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("histogram"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<HistogramStatistic.HistogramSupportingData>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(1d)
+                                                                                        .build())
+                                                                        .setData(
+                                                                                new HistogramStatistic.HistogramSupportingData.Builder()
+                                                                                        .setHistogramSnapshot(histogramSnapshotOf(6.95E-8))
+                                                                                        .build())
+                                                                        .build())))
+                                        .build(),
+                                "runtime.python.asyncio.active_tasks",
+                                new DefaultMetric.Builder()
+                                        .setType(MetricType.GAUGE)
+                                        .setValues(
+                                                ImmutableList.of(
+                                                        new DefaultQuantity.Builder()
+                                                                .setValue(3d)
+                                                                .build()))
+                                        .build()))
+                        .setId("abc")
+                        .setDimensions(
+                                ImmutableMap.of(
+                                        "service.name", "central-services",
+                                        "service", "central-services"))
+                        .setTime(ZonedDateTime.parse("2023-05-31T20:15:55.071Z"))
+                        .build(),
+                new DefaultRecord.Builder()
+                        .setMetrics(
+                                ImmutableMap.of(
+                                        "http.server.active_requests",
+                                        new DefaultMetric.Builder()
+                                                .setType(MetricType.GAUGE)
+                                                .setValues(
+                                                        ImmutableList.of(
+                                                                new DefaultQuantity.Builder()
+                                                                        .setValue(0d)
+                                                                        .build()))
+                                                .build()))
+                        .setId("abc")
+                        .setDimensions(
+                                ImmutableMap.of(
+                                        "http.server_name", "central-services.api.staging.topsort.ai",
+                                        "service.name", "central-services",
+                                        "http.flavor", "1.1",
+                                        "service", "central-services",
+                                        "http.method", "GET",
+                                        "http.scheme", "http",
+                                        "http.host", "10.1.23.61:5000"))
+                        .setTime(ZonedDateTime.parse("2023-05-31T20:15:55.071Z"))
+                        .build(),
+                new DefaultRecord.Builder()
+                        .setMetrics(ImmutableMap.of(
+                                "http.server.duration",
+                                new DefaultMetric.Builder().setType(MetricType.GAUGE).setValues(ImmutableList.of()).setStatistics(
+                                                ImmutableMap.of(
+                                                        sf.getStatistic("max"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(2d)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("min"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(2d)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("sum"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(2d)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("count"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<Double>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(1d)
+                                                                                        .build())
+                                                                        .build()),
+                                                        sf.getStatistic("histogram"),
+                                                        ImmutableList.of(
+                                                                new CalculatedValue.Builder<HistogramStatistic.HistogramSupportingData>()
+                                                                        .setValue(
+                                                                                new DefaultQuantity.Builder()
+                                                                                        .setValue(1d).build())
+                                                                        .setData(
+                                                                                new HistogramStatistic.HistogramSupportingData.Builder()
+                                                                                        .setHistogramSnapshot(histogramSnapshotOf(1.999d))
+                                                                                        .build())
+                                                                        .build())
+                                                )
+                                        ).build()))
+                        .setId("abc")
+                        .setDimensions(ImmutableMap.of(
+                                "http.server_name", "central-services.api.staging.topsort.ai",
+                                "service.name", "central-services",
+                                "http.target", "/",
+                                "http.flavor", "1.1",
+                                "service", "central-services",
+                                "net.host.port", "5000",
+                                "http.method", "GET",
+                                "http.scheme", "http",
+                                "http.host", "10.1.23.61:5000"))
+                        .setTime(ZonedDateTime.parse("2023-05-31T20:15:55.071Z"))
+                        .build(),
+                new DefaultRecord.Builder()
+                        .setMetrics(ImmutableMap.of(
+                                "http.server.active_requests",
+                                new DefaultMetric.Builder()
+                                        .setType(MetricType.GAUGE)
+                                        .setValues(
+                                                ImmutableList.of(
+                                                        new DefaultQuantity.Builder()
+                                                                .setValue(0d)
+                                                                .build()))
+                                        .build()))
+                        .setId("abc")
+                        .setDimensions(ImmutableMap.of(
+                                "http.server_name", "central-services",
+                                "service.name", "central-services",
+                                "http.flavor", "1.1",
+                                "service", "central-services",
+                                "http.method", "GET",
+                                "http.scheme", "http",
+                                "http.host", "10.1.23.61:5000"))
+                        .setTime(ZonedDateTime.parse("2023-05-31T20:15:55.071Z"))
+                        .build()
+        );
+        final List<Record> records = parser.parse(request);
+        assertRecords(expectedRecords, records);
+    }
+    // CHECKSTYLE.ON: MethodLength
+
+    private void assertRecords(final List<Record> expected, final List<Record> actual) {
+        Assert.assertEquals("Expected and actual records differ in length", expected.size(), actual.size());
+        for (int i = 0; i < expected.size(); i++) {
+            assertRecord(expected.get(i), actual.get(i));
+        }
+    }
+
+    private void assertRecord(final Record expected, final Record actual) {
+        Assert.assertEquals("Annotations do not match", expected.getAnnotations(), actual.getAnnotations());
+        Assert.assertEquals("Dimensions do not match", expected.getDimensions(), actual.getDimensions());
+//        Assert.assertEquals(expected.getId(), actual.getId());
+        Assert.assertEquals("Time does not match", expected.getTime(), actual.getTime());
+        Assert.assertEquals("Request time does not match", expected.getRequestTime(), actual.getRequestTime());
+        assertMetrics(expected.getMetrics(), actual.getMetrics());
+    }
+
+    private void assertMetrics(final ImmutableMap<String, ? extends Metric> expected, final ImmutableMap<String, ? extends Metric> actual) {
+        Assert.assertEquals(expected.size(), actual.size());
+
+        for (Map.Entry<String, ? extends Metric> entry : expected.entrySet()) {
+            final String key = entry.getKey();
+            final Metric expectedMetric = entry.getValue();
+            final Metric actualMetric = actual.get(key);
+            Assert.assertNotNull("Did not find expected metric named %s".formatted(key), actualMetric);
+            assertMetric(expectedMetric, actualMetric);
+
+        }
+    }
+
+    private void assertMetric(final Metric expectedMetric, final Metric actualMetric) {
+        Assert.assertEquals(expectedMetric.getType(), actualMetric.getType());
+        Assert.assertEquals(expectedMetric.getValues(), actualMetric.getValues());
+        assertStatistics(expectedMetric.getStatistics(), actualMetric.getStatistics());
+    }
+
+    private void assertStatistics(
+            final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> expected,
+            final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> actual) {
+        Assert.assertEquals(expected.size(), actual.size());
+        for (Map.Entry<Statistic, ImmutableList<CalculatedValue<?>>> entry : expected.entrySet()) {
+            final Statistic key = entry.getKey();
+            final ImmutableList<CalculatedValue<?>> expectedValue = entry.getValue();
+            final ImmutableList<CalculatedValue<?>> actualValue = actual.get(key);
+            Assert.assertNotNull("Did not find expected statistic named %s".formatted(key.getName()), actualValue);
+            assertStatistic(expectedValue, actualValue);
+        }
+    }
+
+    private void assertStatistic(final ImmutableList<CalculatedValue<?>> expected, final ImmutableList<CalculatedValue<?>> actual) {
+        Assert.assertEquals(expected.size(), actual.size());
+        for (int i = 0; i < expected.size(); i++) {
+            assertCalculatedValue(expected.get(i), actual.get(i));
+        }
+    }
+
+    private void assertCalculatedValue(final CalculatedValue<?> expected, final CalculatedValue<?> actual) {
+        Assert.assertEquals(expected.getValue(), actual.getValue());
+        final Object expectedData = expected.getData();
+        final Object actualData = actual.getData();
+        if (expectedData != null && actualData != null) {
+            Assert.assertEquals(expectedData.getClass(), actualData.getClass());
+
+            if (expectedData.getClass().equals(HistogramStatistic.HistogramSupportingData.class)) {
+                final HistogramStatistic.HistogramSupportingData expectedHisto = (HistogramStatistic.HistogramSupportingData) expectedData;
+                final HistogramStatistic.HistogramSupportingData actualHisto = (HistogramStatistic.HistogramSupportingData) actualData;
+                Assert.assertEquals(expectedHisto.getHistogramSnapshot().getValues(), actualHisto.getHistogramSnapshot().getValues());
+            }
+        }
+    }
+
+
     private ExportMetricsServiceRequest createRequest(final InMemoryMetricReader reader) throws IOException {
         final MetricsRequestMarshaler marshaller = MetricsRequestMarshaler.create(reader.collectAllMetrics());
         final ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -431,6 +722,14 @@ public class OpenTelemetryGrpcRecordParserTest {
             throw new IllegalArgumentException("statistic not found: " + statistic);
         }
         return calculated.get(0).getValue().getValue();
+    }
+
+    private HistogramStatistic.HistogramSnapshot histogramSnapshotOf(final double... values) {
+        final HistogramStatistic.Histogram histogram = new HistogramStatistic.Histogram();
+        for (double value : values) {
+            histogram.recordValue(value);
+        }
+        return histogram.getSnapshot();
     }
 
     @Nullable
