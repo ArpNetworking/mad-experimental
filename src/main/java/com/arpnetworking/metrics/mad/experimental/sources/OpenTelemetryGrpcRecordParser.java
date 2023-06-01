@@ -305,8 +305,9 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
         for (final ExponentialHistogramDataPoint histogram : dataPoints) {
             final int scale = histogram.getScale();
 
-            if (!(histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
-                    || histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0) {
+            if (!((histogram.hasPositive() && histogram.getPositive().getBucketCountsCount() > 0)
+                    || (histogram.hasNegative() && histogram.getNegative().getBucketCountsCount() > 0)
+                    || histogram.getZeroCount() > 0)) {
                 RATE_LOGGER.debug()
                         .setMessage("Discarding data")
                         .addData("reason", "no samples")
@@ -361,7 +362,9 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                 }
             }
 
-            entries.add(new AbstractMap.SimpleEntry<>(0d, histogram.getZeroCount()));
+            if (histogram.getZeroCount() > 0) {
+                entries.add(new AbstractMap.SimpleEntry<>(0d, histogram.getZeroCount()));
+            }
 
             final double low;
             if (histogram.hasMin()) {
