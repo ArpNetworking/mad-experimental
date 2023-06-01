@@ -297,6 +297,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
     // CHECKSTYLE.OFF: ExecutableStatementCount - We need to repeat for positive and negative
     // CHECKSTYLE.OFF: MethodLength - We need to repeat for positive and negative
+    // CHECKSTYLE.OFF: UnnecessaryParentheses - Want to be very clear about order of operations
     private void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
                                                       final ImmutableMap<String, String> resourceTags,
                                                       final Map<ImmutableMap<String, String>,
@@ -409,7 +410,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     }
 
 
-
+    // CHECKSTYLE.ON: UnnecessaryParentheses
     // CHECKSTYLE.ON: MethodLength
     // CHECKSTYLE.ON: ExecutableStatementCount
 
