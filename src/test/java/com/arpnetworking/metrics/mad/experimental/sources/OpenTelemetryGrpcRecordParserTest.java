@@ -115,6 +115,11 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertEquals(64d, getStatisticValue(statistics, "sum"), 0.01);
         final CalculatedValue<?> histogramValue = getStatistic(statistics, "histogram").get(0);
         final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogramValue.getData();
+        final HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+        Assert.assertEquals(5, histogramSnapshot.getEntriesCount());
+        Assert.assertEquals(1, histogramSnapshot.getValue(0.0), 0.01);
+        Assert.assertEquals(3, histogramSnapshot.getValue(5.0), 0.01);
+        Assert.assertEquals(1, histogramSnapshot.getValue(75.0), 0.01);
     }
 
     @Test
