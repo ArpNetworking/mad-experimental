@@ -22,6 +22,7 @@ import com.arpnetworking.metrics.mad.model.DefaultRecord;
 import com.arpnetworking.metrics.mad.model.Metric;
 import com.arpnetworking.metrics.mad.model.MetricType;
 import com.arpnetworking.metrics.mad.model.Record;
+import com.arpnetworking.metrics.mad.model.Unit;
 import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
 import com.arpnetworking.metrics.mad.model.statistics.Statistic;
 import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
@@ -89,6 +90,7 @@ public class OpenTelemetryGrpcRecordParserTest {
                 "l_host",
                 AttributeKey.stringKey("cluster"),
                 "t_cluster");
+        histo.record(0.0, attrs);
         histo.record(1.0, attrs);
         histo.record(2.0, attrs);
         histo.record(3.0, attrs);
@@ -108,9 +110,11 @@ public class OpenTelemetryGrpcRecordParserTest {
         final Metric metric = metrics.get("my_histogram");
         Assert.assertNotNull(metric);
         final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
-        Assert.assertEquals(58d, statistics.get(new StatisticFactory().getStatistic("max")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(4d, statistics.get(new StatisticFactory().getStatistic("count")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(64d, statistics.get(new StatisticFactory().getStatistic("sum")).get(0).getValue().getValue(), 0.01);
+        Assert.assertEquals(58d, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(5d, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(64d, getStatisticValue(statistics, "sum"), 0.01);
+        final CalculatedValue<?> histogramValue = getStatistic(statistics, "histogram").get(0);
+        final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogramValue.getData();
     }
 
     @Test
@@ -156,9 +160,9 @@ public class OpenTelemetryGrpcRecordParserTest {
         final Metric metric = metrics.get("my_histogram");
         Assert.assertNotNull(metric);
         final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
-        Assert.assertEquals(58d, statistics.get(new StatisticFactory().getStatistic("max")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(4d, statistics.get(new StatisticFactory().getStatistic("count")).get(0).getValue().getValue(), 0.01);
-        Assert.assertEquals(64d, statistics.get(new StatisticFactory().getStatistic("sum")).get(0).getValue().getValue(), 0.01);
+        Assert.assertEquals(58d, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(4d, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(64d, getStatisticValue(statistics, "sum"), 0.01);
     }
 
     @Test
@@ -465,7 +469,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                 new CalculatedValue.Builder<Double>()
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
-                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .setValue(6.984919587171845E-11)
+                                                                                        .setUnit(Unit.SECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("min"),
@@ -473,7 +478,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                 new CalculatedValue.Builder<Double>()
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
-                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .setValue(6.984919587171845E-11)
+                                                                                        .setUnit(Unit.SECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("sum"),
@@ -481,7 +487,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                 new CalculatedValue.Builder<Double>()
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
-                                                                                        .setValue(6.984919587171845E-8)
+                                                                                        .setValue(6.984919587171845E-11)
+                                                                                        .setUnit(Unit.SECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("count"),
@@ -555,7 +562,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                 new CalculatedValue.Builder<Double>()
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
-                                                                                        .setValue(2d)
+                                                                                        .setValue(0.002d)
+                                                                                        .setUnit(Unit.SECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("min"),
@@ -564,6 +572,7 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
                                                                                         .setValue(2d)
+                                                                                        .setUnit(Unit.MILLISECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("sum"),
@@ -571,7 +580,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                 new CalculatedValue.Builder<Double>()
                                                                         .setValue(
                                                                                 new DefaultQuantity.Builder()
-                                                                                        .setValue(2d)
+                                                                                        .setValue(0.002d)
+                                                                                        .setUnit(Unit.SECOND)
                                                                                         .build())
                                                                         .build()),
                                                         sf.getStatistic("count"),
