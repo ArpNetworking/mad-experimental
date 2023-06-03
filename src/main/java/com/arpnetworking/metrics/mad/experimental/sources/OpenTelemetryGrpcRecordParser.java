@@ -25,6 +25,7 @@ import com.arpnetworking.metrics.mad.model.Metric;
 import com.arpnetworking.metrics.mad.model.MetricType;
 import com.arpnetworking.metrics.mad.model.Quantity;
 import com.arpnetworking.metrics.mad.model.Record;
+import com.arpnetworking.metrics.mad.model.Unit;
 import com.arpnetworking.metrics.mad.model.statistics.HistogramStatistic;
 import com.arpnetworking.metrics.mad.model.statistics.Statistic;
 import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
@@ -56,9 +57,11 @@ import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Parses the OTel protobuf binary protocol into records.
@@ -107,6 +110,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
                     // Here is the place where we have all the metadata to build a record
                     final String name = metric.getName();
+                    final Unit unit = Optional.of(metric.getUnit()).map(String::toLowerCase).map(this::getUnit).orElse(null);
                     switch (metric.getDataCase()) {
                         case SUM:
                             final List<NumberDataPoint> sumPointsList = metric.getSum().getDataPointsList();
@@ -121,12 +125,12 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                         case HISTOGRAM:
                             final List<HistogramDataPoint> histogramDataPoints = metric.getHistogram()
                                     .getDataPointsList();
-                            convertHistogramDataPoints(histogramDataPoints, name, resourceTags, metricsMap);
+                            convertHistogramDataPoints(histogramDataPoints, name, resourceTags, metricsMap, unit);
                             break;
                         case EXPONENTIAL_HISTOGRAM:
                             final List<ExponentialHistogramDataPoint> expHistogramDataPoints = metric.getExponentialHistogram()
                                     .getDataPointsList();
-                            convertExpHistogramDataPoints(expHistogramDataPoints, name, resourceTags, metricsMap);
+                            convertExpHistogramDataPoints(expHistogramDataPoints, name, resourceTags, metricsMap, unit);
                             break;
                         default:
                             RATE_LOGGER.warn()
@@ -151,6 +155,23 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             });
         });
         return records;
+    }
+
+    @Nullable
+    private Unit getUnit(final String unit) {
+
+        switch (unit) {
+            case "ms":
+                return Unit.MILLISECOND;
+            case "us":
+                return Unit.MICROSECOND;
+            case "ns":
+                return Unit.NANOSECOND;
+            case "s":
+                return Unit.SECOND;
+            default:
+                return null;
+        }
     }
 
     private static ImmutableMap<String, String> getTags(final List<KeyValue> attributesList) {
@@ -217,12 +238,13 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                     point.getAttributesList());
         }
     }
-
+    // CHECKSTYLE.OFF: ExecutableStatementCount - It's complicated
+    // CHECKSTYLE.OFF: MethodLength - It's complicated
     private static void convertHistogramDataPoints(final List<HistogramDataPoint> dataPoints, final String name,
                                                    final ImmutableMap<String, String> resourceTags,
                                                    final Map<ImmutableMap<String, String>,
                                                            Map<Long, Map<String,
-                                                                   com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
+                                                                   Metric>>> metricsMap, @Nullable final Unit unit) {
         for (final HistogramDataPoint point : dataPoints) {
             if (point.getExplicitBoundsCount() == 0) {
                 RATE_LOGGER.debug()
@@ -240,7 +262,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             Double highEstimate = null;
 
             for (int x = 0; x < point.getExplicitBoundsCount(); x++) {
-                final long count = point.getBucketCounts(x + 1);
+                final long count = point.getBucketCounts(x);
                 if (count > 0) {
                     entries.add(new AbstractMap.SimpleEntry<>(point.getExplicitBounds(x), count));
                     if (lowEstimate == null) {
@@ -250,6 +272,21 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                         highEstimate = point.getExplicitBounds(x + 1);
                     }
                 }
+            }
+
+            // Last bucket, (last boundary, +inf)
+            // We use the value of the max if it exists, otherwise we use the last boundary + the second to last boundary
+            final long lastBucketCount = point.getBucketCounts(point.getExplicitBoundsCount());
+            if (lastBucketCount > 0) {
+                final double lastBucketValue;
+                if (point.hasMax()) {
+                    lastBucketValue = point.getMax();
+                } else {
+                    final double lastBound = point.getExplicitBounds(point.getExplicitBoundsCount() - 1);
+                    final double secondLastBound = point.getExplicitBounds(point.getExplicitBoundsCount() - 2);
+                    lastBucketValue = lastBound + Math.abs(lastBound - secondLastBound);
+                }
+                entries.add(new AbstractMap.SimpleEntry<>(lastBucketValue, lastBucketCount));
             }
 
             final double low;
@@ -267,10 +304,10 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                 high = highEstimate == null ? 0 : highEstimate;
             }
 
-            statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low));
-            statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high));
-            statistics.put(STATISTIC_FACTORY.getStatistic("count"), createCalculatedValue((double) point.getCount()));
-            statistics.put(STATISTIC_FACTORY.getStatistic("sum"), createCalculatedValue(point.getSum()));
+            statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low, unit));
+            statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high, unit));
+            statistics.put(STATISTIC_FACTORY.getStatistic("count"), createCalculatedValue((double) point.getCount(), null));
+            statistics.put(STATISTIC_FACTORY.getStatistic("sum"), createCalculatedValue(point.getSum(), unit));
 
             statistics.put(
                     STATISTIC_FACTORY.getStatistic("histogram"),
@@ -294,15 +331,18 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                     point.getAttributesList());
         }
     }
+    // CHECKSTYLE.ON: MethodLength
+    // CHECKSTYLE.ON: ExecutableStatementCount
 
     // CHECKSTYLE.OFF: ExecutableStatementCount - We need to repeat for positive and negative
     // CHECKSTYLE.OFF: MethodLength - We need to repeat for positive and negative
     // CHECKSTYLE.OFF: UnnecessaryParentheses - Want to be very clear about order of operations
     private void convertExpHistogramDataPoints(final List<ExponentialHistogramDataPoint> dataPoints, final String name,
-                                                      final ImmutableMap<String, String> resourceTags,
-                                                      final Map<ImmutableMap<String, String>,
+                                               final ImmutableMap<String, String> resourceTags,
+                                               final Map<ImmutableMap<String, String>,
                                                               Map<Long, Map<String,
-                                                                      com.arpnetworking.metrics.mad.model.Metric>>> metricsMap) {
+                                                                      Metric>>> metricsMap,
+                                               @Nullable final Unit unit) {
         for (final ExponentialHistogramDataPoint histogram : dataPoints) {
             final int scale = histogram.getScale();
 
@@ -381,10 +421,10 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                 high = Double.isInfinite(highEstimate) ? 0 : highEstimate;
             }
 
-            statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low));
-            statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high));
-            statistics.put(STATISTIC_FACTORY.getStatistic("count"), createCalculatedValue((double) histogram.getCount()));
-            statistics.put(STATISTIC_FACTORY.getStatistic("sum"), createCalculatedValue(histogram.getSum()));
+            statistics.put(STATISTIC_FACTORY.getStatistic("min"), createCalculatedValue(low, unit));
+            statistics.put(STATISTIC_FACTORY.getStatistic("max"), createCalculatedValue(high, unit));
+            statistics.put(STATISTIC_FACTORY.getStatistic("count"), createCalculatedValue((double) histogram.getCount(), null));
+            statistics.put(STATISTIC_FACTORY.getStatistic("sum"), createCalculatedValue(histogram.getSum(), unit));
 
             statistics.put(
                     STATISTIC_FACTORY.getStatistic("histogram"),
@@ -438,13 +478,14 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                                                 }))));
     }
 
-    private static ImmutableList<CalculatedValue<?>> createCalculatedValue(final double low) {
+    private static ImmutableList<CalculatedValue<?>> createCalculatedValue(final double low, @Nullable final Unit unit) {
         return ImmutableList.of(ThreadLocalBuilder.<CalculatedValue<Void>, CalculatedValue.Builder<Void>>buildGeneric(
                 CalculatedValue.Builder.class,
                 b1 -> b1.setValue(
                         ThreadLocalBuilder.build(
                                 DefaultQuantity.Builder.class,
-                                b2 -> b2.setValue(low)))));
+                                b2 -> b2.setValue(low)
+                                        .setUnit(unit)))));
     }
 
     private static String anyvalToString(final AnyValue value) {
@@ -552,4 +593,20 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenTelemetryMetricsService.class);
     private static final Logger RATE_LOGGER = LoggerFactory.getRateLimitLogger(OpenTelemetryMetricsService.class, Duration.ofSeconds(30));
     private static final StatisticFactory STATISTIC_FACTORY = new StatisticFactory();
+    private static final Map<String, Unit> UNITS_MAP = Maps.newHashMap();
+    static {
+        UNITS_MAP.put("ms", Unit.MILLISECOND);
+        UNITS_MAP.put("s", Unit.SECOND);
+        UNITS_MAP.put("us", Unit.MICROSECOND);
+        UNITS_MAP.put("ns", Unit.NANOSECOND);
+        UNITS_MAP.put("seconds", Unit.SECOND);
+        UNITS_MAP.put("second", Unit.SECOND);
+        UNITS_MAP.put("millisecond", Unit.MILLISECOND);
+        UNITS_MAP.put("milliseconds", Unit.MILLISECOND);
+        UNITS_MAP.put("microsecond", Unit.MICROSECOND);
+        UNITS_MAP.put("microseconds", Unit.MICROSECOND);
+        UNITS_MAP.put("nanosecond", Unit.NANOSECOND);
+        UNITS_MAP.put("nanoseconds", Unit.NANOSECOND);
+
+    }
 }
