@@ -122,6 +122,54 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertEquals(1, histogramSnapshot.getValue(75.0), 0.01);
     }
 
+    /**
+     *  Make sure the histogram is properly normalized base on the units.
+     **/
+    @Test
+    public void testHistogramUnits() throws IOException {
+
+        final Meter meter = _metricProvider.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").setUnit("ms").build();
+
+        final Attributes attrs = Attributes.of(
+                AttributeKey.stringKey("service"),
+                "t_service",
+                AttributeKey.stringKey("host"),
+                "l_host",
+                AttributeKey.stringKey("cluster"),
+                "t_cluster");
+        histo.record(0.0, attrs);
+        histo.record(1.0, attrs);
+        histo.record(2.0, attrs);
+        histo.record(3.0, attrs);
+        histo.record(58.0, attrs);
+
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        final List<Record> records = parser.parse(createRequest(_metricReader));
+        // Assert on records
+        Assert.assertEquals(1, records.size());
+        final Record record = records.get(0);
+        final ImmutableMap<String, String> dimensions = record.getDimensions();
+        Assert.assertEquals("t_service", dimensions.get("service"));
+        Assert.assertEquals("l_host", dimensions.get("host"));
+        Assert.assertEquals("t_cluster", dimensions.get("cluster"));
+        final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+        Assert.assertEquals(1, metrics.size());
+        final Metric metric = metrics.get("my_histogram");
+        Assert.assertNotNull(metric);
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+        Assert.assertEquals(0.058d, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(5d, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(0.064d, getStatisticValue(statistics, "sum"), 0.01);
+        final CalculatedValue<?> histogramValue = getStatistic(statistics, "histogram").get(0);
+        final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogramValue.getData();
+        final HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+        Assert.assertEquals(5, histogramSnapshot.getEntriesCount());
+        Assert.assertEquals(1, histogramSnapshot.getValue(0), 0.01);
+        Assert.assertEquals(3, histogramSnapshot.getValue(0.004974365234375), 0.01);
+        Assert.assertEquals(1, histogramSnapshot.getValue(0.07470703125), 0.01);
+    }
+
     @Test
     public void testExponentialHistograms() throws IOException {
         final SdkMeterProvider mp =
@@ -513,7 +561,7 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                                         .build())
                                                                         .setData(
                                                                                 new HistogramStatistic.HistogramSupportingData.Builder()
-                                                                                        .setHistogramSnapshot(histogramSnapshotOf(6.95E-8))
+                                                                                        .setHistogramSnapshot(histogramSnapshotOf(6.96E-11))
                                                                                         .build())
                                                                         .build())))
                                         .build(),
@@ -605,7 +653,8 @@ public class OpenTelemetryGrpcRecordParserTest {
                                                                                         .setValue(1d).build())
                                                                         .setData(
                                                                                 new HistogramStatistic.HistogramSupportingData.Builder()
-                                                                                        .setHistogramSnapshot(histogramSnapshotOf(1.999d))
+                                                                                        .setHistogramSnapshot(
+                                                                                                histogramSnapshotOf(0.001991d))
                                                                                         .build())
                                                                         .build())
                                                 )
