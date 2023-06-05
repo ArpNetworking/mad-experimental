@@ -32,6 +32,7 @@ import com.arpnetworking.metrics.mad.model.statistics.StatisticFactory;
 import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
+import com.google.common.base.Functions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -110,7 +111,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
                     // Here is the place where we have all the metadata to build a record
                     final String name = metric.getName();
-                    final Unit unit = Optional.of(metric.getUnit()).map(String::toLowerCase).map(this::getUnit).orElse(null);
+                    final Unit unit = Optional.of(metric.getUnit()).map(String::toLowerCase).map(UNITS_MAP::get).orElse(null);
                     switch (metric.getDataCase()) {
                         case SUM:
                             final List<NumberDataPoint> sumPointsList = metric.getSum().getDataPointsList();
@@ -155,23 +156,6 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             });
         });
         return records;
-    }
-
-    @Nullable
-    private Unit getUnit(final String unit) {
-
-        switch (unit) {
-            case "ms":
-                return Unit.MILLISECOND;
-            case "us":
-                return Unit.MICROSECOND;
-            case "ns":
-                return Unit.NANOSECOND;
-            case "s":
-                return Unit.SECOND;
-            default:
-                return null;
-        }
     }
 
     private static ImmutableMap<String, String> getTags(final List<KeyValue> attributesList) {
@@ -311,7 +295,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
             statistics.put(
                     STATISTIC_FACTORY.getStatistic("histogram"),
-                    createHistogramValue(entries));
+                    createHistogramValue(entries, unit));
 
 
             final Long timestamp = point.getTimeUnixNano();
@@ -428,7 +412,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
 
             statistics.put(
                     STATISTIC_FACTORY.getStatistic("histogram"),
-                    createHistogramValue(entries));
+                    createHistogramValue(entries, unit));
 
 
             final Long timestamp = histogram.getTimeUnixNano();
@@ -454,7 +438,13 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     // CHECKSTYLE.ON: MethodLength
     // CHECKSTYLE.ON: ExecutableStatementCount
 
-    private static ImmutableList<CalculatedValue<?>> createHistogramValue(final List<Map.Entry<Double, Long>> entries) {
+    private static ImmutableList<CalculatedValue<?>> createHistogramValue(
+            final List<Map.Entry<Double, Long>> entries,
+            @Nullable final Unit unit) {
+
+        final Function<Double, Double> unitMapFunction =
+                unit != null ? (Double v) -> unit.getType().getDefaultUnit().convert(v, unit)
+                        : Functions.identity();
         return ImmutableList.of(
                 // CHECKSTYLE.OFF: LineLength - Generic specification required for buildGeneric
                 ThreadLocalBuilder.<CalculatedValue<HistogramStatistic.HistogramSupportingData>, CalculatedValue.Builder<HistogramStatistic.HistogramSupportingData>>buildGeneric(
@@ -472,7 +462,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                                                             new HistogramStatistic.Histogram();
                                                     entries.forEach(
                                                             e -> histogram.recordValue(
-                                                                    e.getKey(),
+                                                                    unitMapFunction.apply(e.getKey()),
                                                                     e.getValue()));
                                                     b3.setHistogramSnapshot(histogram.getSnapshot());
                                                 }))));
