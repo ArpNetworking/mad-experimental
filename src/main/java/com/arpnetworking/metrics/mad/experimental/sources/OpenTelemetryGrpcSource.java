@@ -145,7 +145,7 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
     }
 
     /**
-     * Routes for handling the the OpenTelemetry GRPC service.
+     * Routes for handling the OpenTelemetry GRPC service.
      *
      * @author Brandon Arp (brandon dot arp at inscopemetrics dot io)
      */
