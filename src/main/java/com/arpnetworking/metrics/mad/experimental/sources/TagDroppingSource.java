@@ -44,8 +44,8 @@ import net.sf.oval.constraint.NotNull;
 
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link Source} which wraps another {@link Source}
@@ -121,25 +121,17 @@ public final class TagDroppingSource extends BaseSource {
             final Record record = (Record) event;
             final Map<Key, Map<String, MergingMetric>> mergedMetrics = Maps.newHashMap();
 
-            for (DropSet drops : _dropSets) {
-                for (final Map.Entry<String, ? extends Metric> metric : record.getMetrics().entrySet()) {
-                    final String metricName = metric.getKey();
-                    final Pattern metricPattern = drops._metricPattern;
-                    final Matcher matcher = metricPattern.matcher(metricName);
-                    if (matcher.find()) {
-                        merge(
-                                metricName,
-                                metric.getValue(),
-                                mergedMetrics,
-                                getModifiedDimensions(record.getDimensions(), drops.getRemoveDimensions()));
-                    } else {
-                        merge(
-                                metricName,
-                                metric.getValue(),
-                                mergedMetrics,
-                                new DefaultKey(record.getDimensions()));
-                    }
-                }
+            for (final Map.Entry<String, ? extends Metric> metric : record.getMetrics().entrySet()) {
+                final String metricName = metric.getKey();
+                final List<String> dimensionsToDrop = _dropSets.stream()
+                        .filter(d -> d._metricPattern.matcher(metricName).matches())
+                        .flatMap(d -> d._removeDimensions.stream())
+                        .collect(Collectors.toList());
+                    merge(
+                            metricName,
+                            metric.getValue(),
+                            mergedMetrics,
+                            getModifiedDimensions(record.getDimensions(), dimensionsToDrop));
             }
 
             // Raise the merged record event with this source's observers

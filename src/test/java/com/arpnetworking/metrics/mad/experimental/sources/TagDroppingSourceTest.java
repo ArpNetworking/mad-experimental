@@ -243,6 +243,63 @@ public class TagDroppingSourceTest {
         assertRecordsEqual(actualRecord, expectedRecord);
     }
 
+    @Test
+    public void testRemoveMultipleMatching() {
+        _dropSetBuilder.setRemoveDimensions(ImmutableList.of("remove"));
+        final Record matchingRecord = TestBeanFactory.createRecordBuilder()
+                .setMetrics(ImmutableMap.of(
+                        "doesnt_match",
+                        TestBeanFactory.createMetricBuilder()
+                                .setType(MetricType.GAUGE)
+                                .setValues(ImmutableList.of(
+                                        new DefaultQuantity.Builder()
+                                                .setValue(1.23d)
+                                                .setUnit(Unit.BYTE)
+                                                .build()))
+                                .build()))
+                .setDimensions(
+                        ImmutableMap.of(
+                                Key.HOST_DIMENSION_KEY, "MyHost",
+                                Key.SERVICE_DIMENSION_KEY, "MyService",
+                                Key.CLUSTER_DIMENSION_KEY, "MyCluster",
+                                "remove", "_value",
+                                "remove2", "value"))
+                .build();
+
+
+        final TagDroppingSource.DropSet set1 = _dropSetBuilder.build();
+        _dropSetBuilder.setRemoveDimensions(ImmutableList.of("remove2"));
+        final TagDroppingSource.DropSet set2 = _dropSetBuilder.build();
+        _tagDroppingSourceBuilder.setDropSets(ImmutableList.of(set1, set2));
+        final Source transformingSource = _tagDroppingSourceBuilder.build();
+        transformingSource.attach(_mockObserver);
+        notify(_mockSource, matchingRecord);
+
+        final ArgumentCaptor<Record> argument = ArgumentCaptor.forClass(Record.class);
+        Mockito.verify(_mockObserver).notify(Mockito.same(transformingSource), argument.capture());
+        final Record actualRecord = argument.getValue();
+
+        final Map<String, String> expectedDimensions = Maps.newHashMap(matchingRecord.getDimensions());
+        expectedDimensions.remove("remove");
+        expectedDimensions.remove("remove2");
+        final Record expectedRecord = TestBeanFactory.createRecordBuilder()
+                .setAnnotations(matchingRecord.getAnnotations())
+                .setTime(matchingRecord.getTime())
+                .setDimensions(ImmutableMap.copyOf(expectedDimensions))
+                .setMetrics(ImmutableMap.of(
+                        "doesnt_match",
+                        TestBeanFactory.createMetricBuilder()
+                                .setType(MetricType.GAUGE)
+                                .setValues(ImmutableList.of(
+                                        new DefaultQuantity.Builder()
+                                                .setValue(1.23d)
+                                                .setUnit(Unit.BYTE)
+                                                .build()))
+                                .build()))
+                .build();
+        assertRecordsEqual(actualRecord, expectedRecord);
+    }
+
     private void assertRecordsEqual(final Record actualRecord, final Record expectedRecord) {
         Assert.assertTrue(
                 String.format("expected=%s, actual=%s", expectedRecord, actualRecord),
