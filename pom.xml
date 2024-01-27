@@ -53,7 +53,7 @@
     <hamcrest.version>2.0.0.0</hamcrest.version>
     <otel.metrics.version>1.26.0</otel.metrics.version>
     <otel.metrics.testing.version>1.13.0-alpha</otel.metrics.testing.version>
-    <jmh.version>1.36</jmh.version>
+    <jmh.version>1.37</jmh.version>
 
     <!-- Additional Plugins -->
     <docker.maven.plugin.version>0.43.4</docker.maven.plugin.version>
