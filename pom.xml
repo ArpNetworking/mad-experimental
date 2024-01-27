@@ -49,7 +49,7 @@
     <metrics.aggregator.version>1.21.11</metrics.aggregator.version>
     <open.telemetry.protocol.version>1.2.0</open.telemetry.protocol.version>
     <junit.version>4.13.2</junit.version>
-    <mockito.version>4.7.0</mockito.version>
+    <mockito.version>5.10.0</mockito.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
     <otel.metrics.version>1.26.0</otel.metrics.version>
     <otel.metrics.testing.version>1.13.0-alpha</otel.metrics.testing.version>
