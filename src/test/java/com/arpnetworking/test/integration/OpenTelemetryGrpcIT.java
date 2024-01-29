@@ -15,10 +15,7 @@
  */
 package com.arpnetworking.test.integration;
 
-import io.grpc.ManagedChannel;
-import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.shaded.io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.grpc.util.AdvancedTlsX509TrustManager;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -33,9 +30,16 @@ import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 
-import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.net.ssl.SSLContext;
 
 /**
  * Integation test for basic processing of OTLP GRPC requests.
@@ -48,38 +52,47 @@ public class OpenTelemetryGrpcIT {
         GlobalOpenTelemetry.resetForTest();
     }
 
+    @SuppressWarnings("try")
     @Test
-    public void test() throws IOException, InterruptedException {
-        final ManagedChannel channel = NettyChannelBuilder.forAddress(System.getProperty("dockerHostAddress"), 7091)
-                .sslContext(GrpcSslContexts.forClient()
-                        .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                        .build())
-                .build();
+    public void test() throws NoSuchAlgorithmException, CertificateException, KeyManagementException {
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
+        Logger.getLogger("").setLevel(Level.FINEST);
 
-        @SuppressWarnings("deprecation")
-        final OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder()
+        final CompletableResultCode result;
+        final AdvancedTlsX509TrustManager trustManager = AdvancedTlsX509TrustManager.newBuilder()
+                .setVerification(AdvancedTlsX509TrustManager.Verification.INSECURELY_SKIP_ALL_VERIFICATION)
+                .setSslSocketAndEnginePeerVerifier(null)
+                .build();
+        final SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        sslContext.init(null, new AdvancedTlsX509TrustManager[]{trustManager}, SecureRandom.getInstanceStrong());
+        try (OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder()
                 .setAggregationTemporalitySelector(it -> AggregationTemporality.DELTA)
-                .setChannel(channel)
-                .build();
-        final InMemoryMetricReader metricReader = InMemoryMetricReader.createDelta();
-        final SdkMeterProvider mp = SdkMeterProvider.builder().registerMetricReader(metricReader).build();
-        OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal();
+                .setEndpoint("https://localhost:7091")
+                .setSslContext(
+                        sslContext,
+                        trustManager)
+                .build()) {
+            final InMemoryMetricReader metricReader = InMemoryMetricReader.createDelta();
+            final SdkMeterProvider mp = SdkMeterProvider.builder().registerMetricReader(metricReader).build();
+            try (OpenTelemetrySdk ignored = OpenTelemetrySdk.builder().setMeterProvider(mp).buildAndRegisterGlobal()) {
+                final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+                final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
 
-        final Meter meter = mp.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
-        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
-
-        final Attributes attrs = Attributes.of(
-                AttributeKey.stringKey("service"),
-                "t_service",
-                AttributeKey.stringKey("host"),
-                "l_host",
-                AttributeKey.stringKey("cluster"),
-                "t_cluster");
-        histo.record(1.0, attrs);
-        histo.record(2.0, attrs);
-        histo.record(3.0, attrs);
-        histo.record(58.0, attrs);
-        final CompletableResultCode result = exporter.export(metricReader.collectAllMetrics()).join(10, TimeUnit.SECONDS);
+                final Attributes attrs = Attributes.of(
+                        AttributeKey.stringKey("service"),
+                        "t_service",
+                        AttributeKey.stringKey("host"),
+                        "l_host",
+                        AttributeKey.stringKey("cluster"),
+                        "t_cluster");
+                histo.record(1.0, attrs);
+                histo.record(2.0, attrs);
+                histo.record(3.0, attrs);
+                histo.record(58.0, attrs);
+                result = exporter.export(metricReader.collectAllMetrics()).join(10, TimeUnit.SECONDS);
+            }
+        }
         Assert.assertTrue(result.isSuccess());
     }
 }
