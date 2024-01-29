@@ -32,7 +32,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
+import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -52,21 +54,24 @@ public class OpenTelemetryGrpcIT {
 
     @SuppressWarnings("try")
     @Test
-    public void test() throws NoSuchAlgorithmException, CertificateException {
+    public void test() throws NoSuchAlgorithmException, CertificateException, KeyManagementException {
         SLF4JBridgeHandler.removeHandlersForRootLogger();
         SLF4JBridgeHandler.install();
         Logger.getLogger("").setLevel(Level.FINEST);
 
         final CompletableResultCode result;
+        final AdvancedTlsX509TrustManager trustManager = AdvancedTlsX509TrustManager.newBuilder()
+                .setVerification(AdvancedTlsX509TrustManager.Verification.INSECURELY_SKIP_ALL_VERIFICATION)
+                .setSslSocketAndEnginePeerVerifier(null)
+                .build();
+        final SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        sslContext.init(null, new AdvancedTlsX509TrustManager[]{trustManager}, SecureRandom.getInstanceStrong());
         try (OtlpGrpcMetricExporter exporter = OtlpGrpcMetricExporter.builder()
                 .setAggregationTemporalitySelector(it -> AggregationTemporality.DELTA)
-                .setEndpoint("https://" + System.getProperty("dockerHostAddress") + ":7091")
+                .setEndpoint("https://localhost:7091")
                 .setSslContext(
-                        SSLContext.getDefault(),
-                        AdvancedTlsX509TrustManager.newBuilder()
-                                .setVerification(AdvancedTlsX509TrustManager.Verification.INSECURELY_SKIP_ALL_VERIFICATION)
-                                .setSslSocketAndEnginePeerVerifier(null)
-                                .build())
+                        sslContext,
+                        trustManager)
                 .build()) {
             final InMemoryMetricReader metricReader = InMemoryMetricReader.createDelta();
             final SdkMeterProvider mp = SdkMeterProvider.builder().registerMetricReader(metricReader).build();
