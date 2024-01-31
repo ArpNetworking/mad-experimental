@@ -15,7 +15,6 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import akka.util.ByteString;
 import com.arpnetworking.metrics.mad.model.DefaultMetric;
 import com.arpnetworking.metrics.mad.model.DefaultQuantity;
 import com.arpnetworking.metrics.mad.model.DefaultRecord;
@@ -48,6 +47,7 @@ import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import it.unimi.dsi.fastutil.doubles.Double2LongMap;
 import it.unimi.dsi.fastutil.objects.ObjectSortedSet;
+import org.apache.pekko.util.ByteString;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;

@@ -15,12 +15,12 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import akka.actor.ActorSystem;
-import akka.pattern.Patterns;
 import com.arpnetworking.metrics.mad.model.Record;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.pattern.Patterns;
 
 import java.time.Duration;
 import java.util.List;
