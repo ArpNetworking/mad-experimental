@@ -15,7 +15,6 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import akka.http.scaladsl.model.ParsingException;
 import com.arpnetworking.commons.builder.ThreadLocalBuilder;
 import com.arpnetworking.metrics.common.parsers.Parser;
 import com.arpnetworking.metrics.mad.model.DefaultMetric;
@@ -49,6 +48,7 @@ import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 import io.opentelemetry.proto.metrics.v1.ResourceMetrics;
 import io.opentelemetry.proto.metrics.v1.ScopeMetrics;
 import io.opentelemetry.proto.resource.v1.Resource;
+import org.apache.pekko.http.scaladsl.model.ParsingException;
 
 import java.time.Duration;
 import java.time.Instant;

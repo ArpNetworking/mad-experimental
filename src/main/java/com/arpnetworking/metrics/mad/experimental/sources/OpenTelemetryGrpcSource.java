@@ -15,12 +15,6 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import akka.actor.AbstractActor;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
-import akka.http.javadsl.model.HttpRequest;
-import akka.http.javadsl.model.HttpResponse;
-import akka.japi.function.Function;
 import com.arpnetworking.http.SupplementalRoutes;
 import com.arpnetworking.metrics.common.sources.ActorSource;
 import com.arpnetworking.metrics.common.sources.BaseSource;
@@ -30,6 +24,12 @@ import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsServiceHandlerFactory;
+import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.actor.Props;
+import org.apache.pekko.http.javadsl.model.HttpRequest;
+import org.apache.pekko.http.javadsl.model.HttpResponse;
+import org.apache.pekko.japi.function.Function;
 
 import java.util.List;
 import java.util.Optional;

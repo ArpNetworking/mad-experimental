@@ -15,7 +15,6 @@
  */
 package com.arpnetworking.metrics.mad.experimental.sources;
 
-import akka.util.ByteString;
 import com.arpnetworking.metrics.mad.model.Record;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -30,6 +29,7 @@ import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
+import org.apache.pekko.util.ByteString;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
