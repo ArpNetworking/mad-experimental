@@ -171,8 +171,8 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
 
         private static final long serialVersionUID = 1L;
         @SuppressFBWarnings("SE_BAD_FIELD")
-        private final ActorSystem _actorSystem;
+        private final transient ActorSystem _actorSystem;
         @SuppressFBWarnings("SE_BAD_FIELD")
-        private final PeriodicMetrics _metrics;
+        private final transient PeriodicMetrics _metrics;
     }
 }
