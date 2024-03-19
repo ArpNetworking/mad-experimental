@@ -170,9 +170,9 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
         }
 
         private static final long serialVersionUID = 1L;
-        @SuppressFBWarnings("SE_BAD_FIELD")
-        private final ActorSystem _actorSystem;
-        @SuppressFBWarnings("SE_BAD_FIELD")
-        private final PeriodicMetrics _metrics;
+        @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "DI provided")
+        private final transient ActorSystem _actorSystem;
+        @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "DI provided")
+        private final transient PeriodicMetrics _metrics;
     }
 }
