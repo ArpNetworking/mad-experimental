@@ -103,7 +103,7 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
         }
 
         @Override
-        public void postRestart(Throwable reason) throws Exception, Exception {
+        public void postRestart(final Throwable reason) throws Exception {
             super.postRestart(reason);
             LOGGER.warn()
                     .setMessage("Restarting OpenTelemetryGrpcSource actor")
