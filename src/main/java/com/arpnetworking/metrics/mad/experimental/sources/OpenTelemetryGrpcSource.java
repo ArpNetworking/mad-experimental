@@ -102,6 +102,16 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
                     .build();
         }
 
+        @Override
+        public void postRestart(Throwable reason) throws Exception, Exception {
+            super.postRestart(reason);
+            LOGGER.warn()
+                    .setMessage("Restarting OpenTelemetryGrpcSource actor")
+                    .addData("actor", self())
+                    .setThrowable(reason)
+                    .log();
+        }
+
         private void processRecordMessage(final RecordsMessage message) {
             LOGGER.trace()
                     .setMessage("Got records")
