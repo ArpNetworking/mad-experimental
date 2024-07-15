@@ -170,7 +170,11 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             if ("service".equals(kv.getKey())) {
                 hasService = true;
             }
-            tagsBuilder.put(kv.getKey(), kv.getValue().getStringValue());
+
+            final String strVal = anyvalToString(kv.getValue());
+            if (!Strings.isNullOrEmpty(strVal)) {
+                tagsBuilder.put(kv.getKey(), strVal);
+            }
         }
 
         if (!hasService && serviceName != null) {
@@ -547,11 +551,9 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             }
             for (Map.Entry<String, String> entry : resourceTags.entrySet()) {
                 final String key = entry.getKey();
-                String value = entry.getValue();
+                final String value = entry.getValue();
 
-                if (!Strings.isNullOrEmpty(value)) {
-                    tags.putIfAbsent(key, value);
-                }
+                tags.putIfAbsent(key, value);
             }
             finalTags = ImmutableMap.copyOf(tags);
         } else {
