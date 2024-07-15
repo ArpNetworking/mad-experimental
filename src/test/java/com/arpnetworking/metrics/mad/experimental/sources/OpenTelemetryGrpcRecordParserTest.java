@@ -44,6 +44,7 @@ import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.internal.aggregator.HistogramIndexer;
+import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import it.unimi.dsi.fastutil.doubles.Double2LongMap;
 import it.unimi.dsi.fastutil.objects.ObjectSortedSet;
@@ -105,6 +106,107 @@ public class OpenTelemetryGrpcRecordParserTest {
         Assert.assertEquals("t_service", dimensions.get("service"));
         Assert.assertEquals("l_host", dimensions.get("host"));
         Assert.assertEquals("t_cluster", dimensions.get("cluster"));
+        final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+        Assert.assertEquals(1, metrics.size());
+        final Metric metric = metrics.get("my_histogram");
+        Assert.assertNotNull(metric);
+        final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+        Assert.assertEquals(58d, getStatisticValue(statistics, "max"), 0.01);
+        Assert.assertEquals(5d, getStatisticValue(statistics, "count"), 0.01);
+        Assert.assertEquals(64d, getStatisticValue(statistics, "sum"), 0.01);
+        final CalculatedValue<?> histogramValue = getStatistic(statistics, "histogram").get(0);
+        final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogramValue.getData();
+        final HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+        Assert.assertEquals(5, histogramSnapshot.getEntriesCount());
+        Assert.assertEquals(1, histogramSnapshot.getValue(0.0), 0.01);
+        Assert.assertEquals(3, histogramSnapshot.getValue(5.0), 0.01);
+        Assert.assertEquals(1, histogramSnapshot.getValue(75.0), 0.01);
+    }
+
+    @Test
+    public void testDropsEmptyValueOnResourceDimensions() throws IOException {
+
+        final Meter meter;
+        try (SdkMeterProvider provider = SdkMeterProvider.builder()
+                .registerMetricReader(_metricReader)
+                .addResource(
+                        Resource.create(
+                                Attributes.of(AttributeKey.stringKey("resource_attr"), "",
+                                AttributeKey.stringKey("resource_attr2"), "val")))
+                .build()) {
+            meter = provider.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+            final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
+
+            final Attributes attrs = Attributes.of(
+                    AttributeKey.stringKey("service"),
+                    "t_service",
+                    AttributeKey.stringKey("host"),
+                    "l_host",
+                    AttributeKey.stringKey("cluster"),
+                    "t_cluster");
+            histo.record(0.0, attrs);
+            histo.record(1.0, attrs);
+            histo.record(2.0, attrs);
+            histo.record(3.0, attrs);
+            histo.record(58.0, attrs);
+
+            final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+            final List<Record> records = parser.parse(createRequest(_metricReader));
+            // Assert on records
+            Assert.assertEquals(1, records.size());
+            final Record record = records.get(0);
+            final ImmutableMap<String, String> dimensions = record.getDimensions();
+            Assert.assertEquals("t_service", dimensions.get("service"));
+            Assert.assertEquals("l_host", dimensions.get("host"));
+            Assert.assertEquals("t_cluster", dimensions.get("cluster"));
+            Assert.assertEquals("val", dimensions.get("resource_attr2"));
+            Assert.assertFalse(dimensions.containsKey("resource_attr"));
+            final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
+            Assert.assertEquals(1, metrics.size());
+            final Metric metric = metrics.get("my_histogram");
+            Assert.assertNotNull(metric);
+            final ImmutableMap<Statistic, ImmutableList<CalculatedValue<?>>> statistics = metric.getStatistics();
+            Assert.assertEquals(58d, getStatisticValue(statistics, "max"), 0.01);
+            Assert.assertEquals(5d, getStatisticValue(statistics, "count"), 0.01);
+            Assert.assertEquals(64d, getStatisticValue(statistics, "sum"), 0.01);
+            final CalculatedValue<?> histogramValue = getStatistic(statistics, "histogram").get(0);
+            final HistogramStatistic.HistogramSupportingData data = (HistogramStatistic.HistogramSupportingData) histogramValue.getData();
+            final HistogramStatistic.HistogramSnapshot histogramSnapshot = data.getHistogramSnapshot();
+            Assert.assertEquals(5, histogramSnapshot.getEntriesCount());
+            Assert.assertEquals(1, histogramSnapshot.getValue(0.0), 0.01);
+            Assert.assertEquals(3, histogramSnapshot.getValue(5.0), 0.01);
+            Assert.assertEquals(1, histogramSnapshot.getValue(75.0), 0.01);
+        }
+    }
+
+    @Test
+    public void testDropsEmptyValueOnMetricDimensions() throws IOException {
+
+        final Meter meter = _metricProvider.meterBuilder("mad-experimental").setSchemaUrl("mad").build();
+        final DoubleHistogram histo = meter.histogramBuilder("my_histogram").build();
+
+        final Attributes attrs = Attributes.of(
+                AttributeKey.stringKey("service"),
+                "t_service",
+                AttributeKey.stringKey("host"),
+                "l_host",
+                AttributeKey.stringKey("cluster"),
+                "");
+        histo.record(0.0, attrs);
+        histo.record(1.0, attrs);
+        histo.record(2.0, attrs);
+        histo.record(3.0, attrs);
+        histo.record(58.0, attrs);
+
+        final OpenTelemetryGrpcRecordParser parser = new OpenTelemetryGrpcRecordParser();
+        final List<Record> records = parser.parse(createRequest(_metricReader));
+        // Assert on records
+        Assert.assertEquals(1, records.size());
+        final Record record = records.get(0);
+        final ImmutableMap<String, String> dimensions = record.getDimensions();
+        Assert.assertEquals("t_service", dimensions.get("service"));
+        Assert.assertEquals("l_host", dimensions.get("host"));
+        Assert.assertFalse(dimensions.containsKey("cluster"));
         final ImmutableMap<String, ? extends Metric> metrics = record.getMetrics();
         Assert.assertEquals(1, metrics.size());
         final Metric metric = metrics.get("my_histogram");
