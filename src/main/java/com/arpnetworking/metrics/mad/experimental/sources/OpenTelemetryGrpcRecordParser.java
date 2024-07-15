@@ -32,6 +32,7 @@ import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import com.arpnetworking.tsdcore.model.CalculatedValue;
 import com.google.common.base.Functions;
+import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -169,7 +170,11 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             if ("service".equals(kv.getKey())) {
                 hasService = true;
             }
-            tagsBuilder.put(kv.getKey(), kv.getValue().getStringValue());
+
+            final String strVal = anyvalToString(kv.getValue());
+            if (!Strings.isNullOrEmpty(strVal)) {
+                tagsBuilder.put(kv.getKey(), strVal);
+            }
         }
 
         if (!hasService && serviceName != null) {
@@ -479,13 +484,13 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
     }
 
     private static String anyvalToString(final AnyValue value) {
-        String stringValue = "[empty]";
+        String stringValue = "";
         switch (value.getValueCase()) {
             case STRING_VALUE:
                 stringValue = value.getStringValue();
 
-                if ("".equals(stringValue)) {
-                    stringValue = "[empty]";
+                if (Strings.isNullOrEmpty(stringValue)) {
+                    stringValue = "";
                 }
                 break;
             case BOOL_VALUE:
@@ -515,7 +520,7 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
                 stringValue = Arrays.toString(value.getBytesValue().toByteArray());
                 break;
             case VALUE_NOT_SET:
-                stringValue = "[empty]";
+                stringValue = "";
                 break;
             default:
                 stringValue = "[unknown_type]";
@@ -539,17 +544,15 @@ public class OpenTelemetryGrpcRecordParser implements Parser<List<Record>, Expor
             for (KeyValue kv : attributesList) {
                 final String key = kv.getKey();
 
-                if (tags.put(key, anyvalToString(kv.getValue())) != null) {
+                final String value = anyvalToString(kv.getValue());
+                if (!Strings.isNullOrEmpty(value) && tags.put(key, value) != null) {
                     throw new IllegalStateException("Duplicate key");
                 }
             }
             for (Map.Entry<String, String> entry : resourceTags.entrySet()) {
                 final String key = entry.getKey();
-                String value = entry.getValue();
+                final String value = entry.getValue();
 
-                if ("".equals(value)) {
-                    value = "[empty]";
-                }
                 tags.putIfAbsent(key, value);
             }
             finalTags = ImmutableMap.copyOf(tags);
