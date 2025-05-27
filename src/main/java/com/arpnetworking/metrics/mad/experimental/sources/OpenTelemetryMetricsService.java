@@ -19,7 +19,7 @@ import com.arpnetworking.metrics.mad.model.Record;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest;
 import io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceResponse;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsService;
-import org.apache.pekko.actor.ActorSystem;
+import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.pattern.Patterns;
 
 import java.time.Duration;
@@ -33,13 +33,14 @@ import java.util.concurrent.CompletionStage;
  */
 public class OpenTelemetryMetricsService implements MetricsService {
 
+
     /**
      * Public constructor.
      *
-     * @param actorSystem {@link ActorSystem} the source is running in
+     * @param sourceActor The actor to send records to.
      */
-    public OpenTelemetryMetricsService(final ActorSystem actorSystem) {
-        _actorSystem = actorSystem;
+    public OpenTelemetryMetricsService(final ActorRef sourceActor) {
+        _sourceActor = sourceActor;
         _recordParser = new OpenTelemetryGrpcRecordParser();
     }
 
@@ -47,15 +48,13 @@ public class OpenTelemetryMetricsService implements MetricsService {
     public CompletionStage<ExportMetricsServiceResponse> export(final ExportMetricsServiceRequest in) {
         final List<Record> records = _recordParser.parse(in);
 
-        return _actorSystem.actorSelection("/user/" + OpenTelemetryGrpcSource.ACTOR_NAME)
-                .resolveOne(Duration.ofSeconds(1))
-                .thenApply(a -> Patterns.ask(a, new OpenTelemetryGrpcSource.RecordsMessage(records), Duration.ofSeconds(3)))
+        return Patterns.ask(_sourceActor, new OpenTelemetryGrpcSource.RecordsMessage(records), Duration.ofSeconds(3))
                 .thenApply(v -> ExportMetricsServiceResponse.newBuilder().build());
     }
 
 
 
-    private final ActorSystem _actorSystem;
+    private final ActorRef _sourceActor;
     private final OpenTelemetryGrpcRecordParser _recordParser;
 
 }

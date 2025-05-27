@@ -25,15 +25,22 @@ import com.arpnetworking.steno.LoggerFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsServiceHandlerFactory;
 import org.apache.pekko.actor.AbstractActor;
+import org.apache.pekko.actor.ActorRef;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.actor.Props;
 import org.apache.pekko.http.javadsl.model.HttpRequest;
 import org.apache.pekko.http.javadsl.model.HttpResponse;
 import org.apache.pekko.japi.function.Function;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.inject.Inject;
 
 /**
@@ -167,15 +174,18 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
          * @param periodicMetrics A PeriodicMetrics to record metrics against
          */
         @Inject
-        public Routes(final ActorSystem actorSystem, final PeriodicMetrics periodicMetrics) {
+        public Routes(final ActorSystem actorSystem, final PeriodicMetrics periodicMetrics) throws ExecutionException, InterruptedException, TimeoutException {
             _actorSystem = actorSystem;
             _metrics = periodicMetrics;
+            _sourceActor = _actorSystem.actorSelection("/user/" + ACTOR_NAME)
+                    .resolveOne(Duration.of(10, ChronoUnit.SECONDS))
+                    .toCompletableFuture().get(10, TimeUnit.SECONDS);
         }
 
         @Override
         public Optional<CompletionStage<HttpResponse>> apply(final HttpRequest param) throws Exception {
             final Function<HttpRequest, CompletionStage<HttpResponse>> subrouter =
-                    MetricsServiceHandlerFactory.create(new OpenTelemetryMetricsService(_actorSystem), _actorSystem);
+                    MetricsServiceHandlerFactory.create(new OpenTelemetryMetricsService(_sourceActor), _actorSystem);
             return Optional.of(subrouter.apply(param));
         }
 
@@ -184,5 +194,6 @@ public final class OpenTelemetryGrpcSource extends ActorSource {
         private final transient ActorSystem _actorSystem;
         @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "DI provided")
         private final transient PeriodicMetrics _metrics;
+        private final transient ActorRef _sourceActor;
     }
 }
