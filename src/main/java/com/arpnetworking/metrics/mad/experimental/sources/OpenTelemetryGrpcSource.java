@@ -34,7 +34,7 @@ import org.apache.pekko.japi.function.Function;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 /**
  * Source that uses OpenTelemetry GRPC as input.
