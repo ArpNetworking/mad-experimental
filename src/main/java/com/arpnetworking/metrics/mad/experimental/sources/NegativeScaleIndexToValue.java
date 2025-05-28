@@ -30,7 +30,7 @@ final class NegativeScaleIndexToValue extends ZeroScaleIndexToValue {
      */
      NegativeScaleIndexToValue(final int scale) {
         if (scale >= 0) {
-            throw new RuntimeException("scale must be negative");
+            throw new IllegalArgumentException("scale must be negative");
         }
         _scale = scale;
     }

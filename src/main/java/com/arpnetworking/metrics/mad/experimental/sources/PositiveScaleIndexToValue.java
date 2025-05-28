@@ -26,7 +26,7 @@ final class PositiveScaleIndexToValue implements IndexToValue {
 
     PositiveScaleIndexToValue(final int scale) {
         if (scale <= 0) {
-            throw new RuntimeException("scale must be positive");
+            throw new IllegalArgumentException("scale must be positive");
         }
 
         _scaleFactor = Math.scalb(LOG_BASE2_E, scale);
