@@ -24,6 +24,7 @@ import com.arpnetworking.steno.Logger;
 import com.arpnetworking.steno.LoggerFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.opentelemetry.proto.collector.metrics.v1.MetricsServiceHandlerFactory;
+import jakarta.inject.Inject;
 import org.apache.pekko.actor.AbstractActor;
 import org.apache.pekko.actor.ActorSystem;
 import org.apache.pekko.actor.Props;
@@ -34,7 +35,6 @@ import org.apache.pekko.japi.function.Function;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
-import javax.inject.Inject;
 
 /**
  * Source that uses OpenTelemetry GRPC as input.
