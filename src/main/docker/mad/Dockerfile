@@ -1,4 +1,4 @@
-FROM arpnetworking/mad:1.22.8
+FROM arpnetworking/mad:1.22.9
 
 ADD lib /opt/mad/lib/ext
 ADD deps /opt/mad/lib/ext
