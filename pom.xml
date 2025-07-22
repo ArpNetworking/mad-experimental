@@ -52,6 +52,7 @@
     <mockito.version>5.18.0</mockito.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
     <otel.metrics.version>1.52.0</otel.metrics.version>
+    <okhttp.version>4.12.0</okhttp.version>
     <pekko.http.version>1.2.0</pekko.http.version>
     <pekko.version>1.1.5</pekko.version>
     <jmh.version>1.37</jmh.version>
@@ -463,6 +464,17 @@
       <groupId>org.openjdk.jmh</groupId>
       <artifactId>jmh-generator-annprocess</artifactId>
       <version>${jmh.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Explicit OkHttp dependency to fix Failsafe plugin classloading issue.
+         OpenTelemetry 1.52.0 transitively brings OkHttp 5.1.0, but OkHttp 5.x
+         has classloading compatibility issues with Maven Failsafe plugin during
+         integration test execution. OkHttp 4.12.0 works correctly and is fully
+         compatible with OpenTelemetry 1.52.0. -->
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>${okhttp.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
