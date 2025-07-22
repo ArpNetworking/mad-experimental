@@ -51,7 +51,7 @@
     <junit.version>4.13.2</junit.version>
     <mockito.version>5.18.0</mockito.version>
     <hamcrest.version>2.0.0.0</hamcrest.version>
-    <otel.metrics.version>1.51.0</otel.metrics.version>
+    <otel.metrics.version>1.52.0</otel.metrics.version>
     <pekko.http.version>1.2.0</pekko.http.version>
     <pekko.version>1.1.5</pekko.version>
     <jmh.version>1.37</jmh.version>
