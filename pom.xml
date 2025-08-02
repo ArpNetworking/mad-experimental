@@ -46,7 +46,7 @@
 
   <properties>
     <!--Dependency versions-->
-    <metrics.aggregator.version>1.22.13</metrics.aggregator.version>
+    <metrics.aggregator.version>1.22.14</metrics.aggregator.version>
     <open.telemetry.protocol.version>1.4.0</open.telemetry.protocol.version>
     <junit.version>4.13.2</junit.version>
     <mockito.version>5.18.0</mockito.version>
@@ -290,6 +290,14 @@
                 <tags>
                   <tag>${buildNumber}</tag>
                 </tags>
+                <buildx>
+                  <dockerStateDir>${user.home}/.docker</dockerStateDir>
+                  <builderName>multiarch</builderName>
+                  <platforms>
+                    <platform>linux/amd64</platform>
+                    <platform>linux/arm64</platform>
+                  </platforms>
+                </buildx>
               </build>
               <run>
                 <network>
