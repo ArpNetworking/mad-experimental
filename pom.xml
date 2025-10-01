@@ -474,17 +474,6 @@
       <version>${jmh.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- Explicit OkHttp dependency to fix Failsafe plugin classloading issue.
-         OpenTelemetry 1.52.0 transitively brings OkHttp 5.1.0, but OkHttp 5.x
-         has classloading compatibility issues with Maven Failsafe plugin during
-         integration test execution. OkHttp 4.12.0 works correctly and is fully
-         compatible with OpenTelemetry 1.52.0. -->
-    <dependency>
-      <groupId>com.squareup.okhttp3</groupId>
-      <artifactId>okhttp</artifactId>
-      <version>${okhttp.version}</version>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <profiles>
